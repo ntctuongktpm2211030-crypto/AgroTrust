@@ -22,12 +22,14 @@ abstract contract AgroStorage {
     uint256 public batchCount;
     uint256 public logCount;
     uint256 public inspectionCount; // Bộ đếm tổng số phiếu kiểm định
+    uint256 public logisticsCount;  // Bộ đếm sự kiện logistics
 
     // Các bảng dữ liệu (Mapping - giống khái niệm Tables trong Database SQL)
     mapping(uint256 => Farm) public farms;                                 // farmId => Dữ liệu Nông trại
     mapping(uint256 => Batch) public batches;                              // batchId => Dữ liệu Lô hàng
     mapping(uint256 => CultivationLog[]) public batchLogs;                 // batchId => Mảng các Nhật ký canh tác
     mapping(uint256 => Inspection[]) public batchInspections;              // batchId => Mảng các Phiếu kiểm định
+    mapping(uint256 => LogisticsEvent[]) public batchLogistics;            // batchId => Mảng sự kiện logistics
 
     // ------------------------------------------------------------------------
     // Sự kiện (Events) - Dùng để báo cho Frontend biết Blockchain vừa cập nhật
@@ -40,6 +42,10 @@ abstract contract AgroStorage {
     event BatchStatusUpdated(uint256 indexed batchId, BatchStatus status);
     event CultivationLogAdded(uint256 indexed logId, uint256 indexed batchId, string actionType);
     event BatchInspected(uint256 indexed batchId, address indexed inspectorAddress, string result);
+    
+    // Sự kiện Cảnh báo & Realtime Notifications
+    event LogisticsEventAdded(uint256 indexed batchId, string eventType, string anomaly);
+    event AnomalyAlert(uint256 indexed batchId, string anomalyType, string details);
 
     // ------------------------------------------------------------------------
     // Modifier (Kiểm soát Quyền Hạn Hợp Đồng)

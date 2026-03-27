@@ -19,6 +19,7 @@ export default function BatchDashboard({ contract, account }) {
     farmId: '', productName: '', plantType: '', cultivationArea: '',
     sowingDate: '', expectedHarvestDate: '', expectedQuantity: '', quantityUnit: 'kg', dataHash: ''
   });
+  const [logisticsForm, setLogisticsForm] = useState(null);
 
   // Ảnh nông sản của farm đang chọn (đọc từ localStorage)
   const [cropPreview, setCropPreview] = useState(null);  // { image, cropType }
@@ -44,18 +45,19 @@ export default function BatchDashboard({ contract, account }) {
     if (crops.length > 0) setSelectedCrop(crops[0]);
   }, [form.farmId, farmList]);
 
-  // Khi selectedCrop thay đổi → load preview ảnh tương ứng
+  // Khi selectedCrop thay đổi → load preview ảnh tương ứng + tự điền dataHash
   useEffect(() => {
     if (!selectedCrop) {
       setCropPreview(null); return;
     }
     const images = getCropImages();
     const key = selectedCrop.toLowerCase();
-    const img = images[key] || null;
-    setCropPreview({ image: img, cropType: selectedCrop });
+    const cid = images[key] || null;
+    // cid có thể là IPFS CID string hoặc base64 data URL
+    setCropPreview({ image: cid, cropType: selectedCrop });
     
     // Tự điền plantType theo crop hiện tại nếu chưa có
-    setForm(f => ({ ...f, plantType: selectedCrop }));
+    setForm(f => ({ ...f, plantType: selectedCrop, dataHash: cid || f.dataHash }));
   }, [selectedCrop]);
 
   const loadData = async () => {
@@ -110,6 +112,31 @@ export default function BatchDashboard({ contract, account }) {
       setTimeout(() => setMsg(''), 5000);
       setForm({ farmId:'', productName:'', plantType:'', cultivationArea:'', sowingDate:'', expectedHarvestDate:'', expectedQuantity:'', quantityUnit:'kg', dataHash:'' });
       setCropPreview(null);
+      loadData();
+    } catch (err) {
+      setMsg('❌ Lỗi giao dịch: ' + (err.reason || err.message));
+      setTimeout(() => setMsg(''), 5000);
+    } finally { setLoading(false); }
+  };
+
+  const handleLogisticsSubmit = async e => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setMsg('⏳ Đang ghi nhận sự kiện Logistics...');
+      const tx = await contract.addLogisticsEvent(
+        BigInt(logisticsForm.batchId),
+        logisticsForm.eventType,
+        logisticsForm.location,
+        BigInt(logisticsForm.temperature),
+        BigInt(logisticsForm.humidity),
+        logisticsForm.anomaly,
+        logisticsForm.operatorName
+      );
+      await tx.wait();
+      setMsg('🎉 Cập nhật chuỗi Logistics thành công!');
+      setTimeout(() => setMsg(''), 5000);
+      setLogisticsForm(null);
       loadData();
     } catch (err) {
       setMsg('❌ Lỗi giao dịch: ' + (err.reason || err.message));
@@ -248,14 +275,17 @@ export default function BatchDashboard({ contract, account }) {
         ) : (
           <div className="farms-grid">
             {batches.map(b => {
-              // Tìm cropType của farm tương ứng để lấy ảnh
+              // Ưu tiên ảnh từ blockchain (dataHash), fallback về localStorage
               const farm = farmList.find(f => f.id === b.farmId.toString());
-              const cid = farm?.cropType ? cropImages[farm.cropType.trim().toLowerCase()] : null;
+              const onChainCid = b.dataHash || null;
+              const localCid = farm?.cropType ? cropImages[farm.cropType.trim().toLowerCase()] : null;
+              const cid = onChainCid || localCid;
+              const imgSrc = cid ? (cid.startsWith('data:') ? cid : `https://ipfs.io/ipfs/${cid}`) : null;
               return (
                 <div className="farm-item" key={b.batchId.toString()}>
-                  {cid && (
+                  {imgSrc && (
                     <div className="farm-crop-img">
-                      <img src={getIpfsUrl(cid) || cid} alt={farm.cropType} />
+                      <img src={imgSrc} alt={b.plantType} />
                     </div>
                   )}
                   <div className="farm-id">Lô #{b.batchId.toString()}</div>
@@ -265,12 +295,64 @@ export default function BatchDashboard({ contract, account }) {
                   <span>🌱 Gieo: {fromTs(b.sowingDate)} — 🗓️ Thu hoạch: {fromTs(b.expectedHarvestDate)}</span>
                   <span>📦 Dự kiến: {b.expectedQuantity.toString()} {b.quantityUnit}</span>
                   <span className="active-badge">{STATUS_LABELS[Number(b.status)]}</span>
+                  <button onClick={() => setLogisticsForm({ batchId: b.batchId.toString(), eventType: 'Đóng gói', location: '', temperature: '', humidity: '', anomaly: '', operatorName: '' })} className="btn primary-btn" style={{marginTop: '12px', fontSize: '13px', padding: '6px', width: '100%', background: 'transparent', border: '1px solid var(--emerald-light)', color: 'var(--emerald-light)'}}>
+                    🚚 Cập nhật Logistics
+                  </button>
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* MODAL LOGISTICS */}
+      {logisticsForm && (
+        <div className="modal-overlay" style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center'}}>
+          <div className="modal-content glass-card fade-in" style={{padding:'24px', width:'90%', maxWidth:'400px'}}>
+            <h3 style={{marginBottom:'16px'}}>Ghi nhận Logistics (Lô #{logisticsForm.batchId})</h3>
+            <form onSubmit={handleLogisticsSubmit} className="custom-form" style={{display:'flex', flexDirection:'column', gap:'12px'}}>
+               <div className="form-group">
+                 <label>Sự kiện</label>
+                 <select value={logisticsForm.eventType} onChange={e => setLogisticsForm({...logisticsForm, eventType: e.target.value})}>
+                   <option>Đóng gói</option>
+                   <option>Vận chuyển</option>
+                   <option>Nhận hàng</option>
+                   <option>Lưu kho</option>
+                   <option>Giao hàng</option>
+                 </select>
+               </div>
+               <div className="form-group">
+                 <label>Địa điểm</label>
+                 <input required value={logisticsForm.location} onChange={e => setLogisticsForm({...logisticsForm, location: e.target.value})} placeholder="Kho trung chuyển A..." />
+               </div>
+               <div style={{display:'flex', gap:'12px'}}>
+                 <div className="form-group" style={{flex:1}}>
+                   <label>Nhiệt độ (°C)</label>
+                   <input required type="number" value={logisticsForm.temperature} onChange={e => setLogisticsForm({...logisticsForm, temperature: e.target.value})} />
+                 </div>
+                 <div className="form-group" style={{flex:1}}>
+                   <label>Độ ẩm (%)</label>
+                   <input required type="number" value={logisticsForm.humidity} onChange={e => setLogisticsForm({...logisticsForm, humidity: e.target.value})} />
+                 </div>
+               </div>
+               <div className="form-group">
+                 <label>Cảnh báo (nếu có)</label>
+                 <input value={logisticsForm.anomaly} onChange={e => setLogisticsForm({...logisticsForm, anomaly: e.target.value})} placeholder="VD: Nhiệt độ cao bất thường" style={{borderColor: logisticsForm.anomaly ? '#ef4444' : ''}} />
+               </div>
+               <div className="form-group">
+                 <label>Người phụ trách</label>
+                 <input required value={logisticsForm.operatorName} onChange={e => setLogisticsForm({...logisticsForm, operatorName: e.target.value})} placeholder="Tên nhân viên..." />
+               </div>
+               <div style={{display:'flex', gap:'10px', marginTop:'10px'}}>
+                 <button type="submit" className="btn primary-btn" disabled={loading} style={{flex:1}}>Lưu</button>
+                 <button type="button" className="btn secondary-btn" onClick={() => setLogisticsForm(null)} disabled={loading} style={{flex:1, background:'transparent', border: '1px solid #475569'}}>Hủy</button>
+               </div>
+               {msg && <p className="form-msg" style={{fontSize:'13px'}}>{msg}</p>}
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

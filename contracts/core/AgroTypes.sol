@@ -85,3 +85,18 @@ struct Inspection {
     string  inspectionHash;   // Mã băm tài liệu/file PDF chứng nhận (IPFS)
     uint256 timestamp;        // Thời gian kiểm định
 }
+
+// 6. Sự kiện Logistics (LogisticsEvent)
+// Lưu trữ các mốc trong chuỗi cung ứng: Đóng gói, Vận chuyển, Nhận hàng, Lưu kho, Giao hàng.
+struct LogisticsEvent {
+    uint256 eventId;
+    uint256 batchId;
+    string eventType;      // Loại sự kiện (Ví dụ: "Đóng gói", "Vận chuyển", "Lưu kho"...)
+    string location;       // Địa điểm hiện tại
+    int256 temperature;    // Nhiệt độ đo được (nhân 10 hoặc 100 để bỏ số thập phân nếu cần, hoặc cứ để nguyên nếu dùng offchain check)
+    int256 humidity;       // Độ ẩm đo được
+    string anomaly;        // Cảnh báo bất thường (nếu có, ví dụ: "Nhiệt độ vượt ngưỡng")
+    address operatorAddress;
+    string operatorName;
+    uint256 timestamp;
+}

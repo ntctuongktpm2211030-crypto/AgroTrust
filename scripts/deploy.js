@@ -64,15 +64,37 @@ async function main() {
   
   console.log(`\n✅ AgroTrust đã được deploy thành công tại địa chỉ: ${contractAddress}`);
   
-  // Tự động ghi ABI và Address ra file config cho Frontend (Đã cập nhật để hỗ trợ React Vite)
+  // Tự động ghi ABI và Address ra file config cho Frontend
   const frontendConfigPath = "./frontend/src/config.js";
-  const configContent = `// Tệp này tự động được tạo ra bởi scripts/deploy.js
-export const CONTRACT_ADDRESS = "${contractAddress}";
-export const CONTRACT_ABI = ${JSON.stringify(abi, null, 2)};
-`;
+  let oldConfig = "";
+  if (fs.existsSync(frontendConfigPath)) {
+    oldConfig = fs.readFileSync(frontendConfigPath, "utf8");
+  } else {
+    // Dự phòng nếu không có
+    oldConfig = `export const NETWORK_CONFIG = {};\n`;
+  }
 
-  fs.writeFileSync(frontendConfigPath, configContent);
-  console.log(`✅ File cấu hình đã tự động lưu vào: ${frontendConfigPath}\n`);
+  const netObj = await provider.getNetwork();
+  const chainIdHex = "0x" + Number(netObj.chainId).toString(16);
+
+  // Tìm và thay thế address của Mạng tương ứng
+  const regex = new RegExp(`("${chainIdHex}":\\s*\\{[^}]*address:\\s*")0x[a-fA-F0-9]*(")`, "g");
+  
+  if(regex.test(oldConfig)) {
+    oldConfig = oldConfig.replace(regex, `$1${contractAddress}$2`);
+  } else {
+    console.warn(`[Cảnh Báo] Mạng ${chainIdHex} chưa khai báo trong config.js. Bạn hãy tự thêm vào NETWORK_CONFIG nhé!`);
+  }
+
+  const abiRegex = /export const CONTRACT_ABI = \[[\s\S]*$/;
+  if(abiRegex.test(oldConfig)) {
+    oldConfig = oldConfig.replace(abiRegex, `export const CONTRACT_ABI = ${JSON.stringify(abi, null, 2)};`);
+  } else {
+    oldConfig += `\nexport const CONTRACT_ABI = ${JSON.stringify(abi, null, 2)};\n`;
+  }
+
+  fs.writeFileSync(frontendConfigPath, oldConfig);
+  console.log(`✅ File cấu hình đã tự động lưu địa chỉ MỚI cho mạng ${chainIdHex} vào: ${frontendConfigPath}\n`);
 }
 
 main().catch((error) => {

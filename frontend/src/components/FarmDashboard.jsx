@@ -87,21 +87,37 @@ export default function FarmDashboard({ contract, account }) {
       setLoading(true);
 
       setMsg('⏳ Đang đồng bộ dữ liệu lên mạng lưới Blockchain...');
-      const tx = await contract.addFarm(form.farmName, form.location, form.cropType, form.area);
+      const tx = await contract.addFarm(
+        form.farmName, 
+        form.ownerName, 
+        form.phoneNumber, 
+        form.location, 
+        form.gpsCoordinates, 
+        form.area, 
+        form.cropType, 
+        form.description
+      );
       await tx.wait();
       
       // Chờ giao dịch xong mới lấy ID và upload IPFS
       const farmCount = await contract.farmCount();
       
-      if (cropImageBase64) {
-        setMsg('⏳ Khởi tạo thành công. Đang lưu trữ hình ảnh lên IPFS...');
-        const cid = await uploadBase64ToPinata(cropImageBase64, `farm_${farmCount}_${form.cropType.trim()}`);
-        if (cid) {
-          const storedIPFS = JSON.parse(localStorage.getItem('agrotrust_crop_images') || '{}');
-          const allCrops = form.cropType.split(/[,;/]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
-          allCrops.forEach(c => storedIPFS[c] = cid);
-          localStorage.setItem('agrotrust_crop_images', JSON.stringify(storedIPFS));
+      const storedIPFS = JSON.parse(localStorage.getItem('agrotrust_crop_images') || '{}');
+      let imgUploaded = false;
+
+      for (const [cropKey, base64Data] of Object.entries(cropPicMap)) {
+        if (base64Data && base64Data.startsWith('data:image')) {
+          setMsg(`⏳ Khởi tạo thành công. Đang lưu ảnh ${cropKey} lên Cloud IPFS...`);
+          const cid = await uploadBase64ToPinata(base64Data, `farm_${farmCount}_${cropKey}`);
+          if (cid) {
+            storedIPFS[cropKey] = cid;
+            imgUploaded = true;
+          }
         }
+      }
+
+      if (imgUploaded) {
+        localStorage.setItem('agrotrust_crop_images', JSON.stringify(storedIPFS));
       }
 
       setMsg('🎉 Hoàn tất: Nông trại đã được khởi tạo và xác thực trên chuỗi!');

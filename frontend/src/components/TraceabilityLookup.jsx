@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { Contract, JsonRpcProvider } from 'ethers';
+import { NETWORK_CONFIG, CONTRACT_ABI } from '../config';
 import './TraceabilityLookup.css';
 
 const STATUS_LABELS = [
@@ -69,7 +71,36 @@ function AnimatedCard({ children, className, delay = 0, onClick }) {
   );
 }
 
-/* ── Main Component ────────────────────────────────────── */
+/* ── Public RPC endpoints for each supported network ─── */
+const NETWORK_RPC = {
+  "0x88bb0":  "https://rpc.hoodi.ethpandaops.io",        // Hoodi
+  "0xaa36a7": "https://rpc.ankr.com/eth_sepolia",        // Sepolia (Ankr allows CORS)
+  "0xaef3":   "https://alfajores-forno.celo-testnet.org",// Celo Alfajores
+  "0x515":    "https://sepolia.unichain.org"             // Unichain Sepolia
+};
+
+// Helper: get image src from a CID or data URL string
+const getImgSrc = (cid) => {
+  if (!cid) return null;
+  if (cid.startsWith('data:')) return cid;
+  return `https://ipfs.io/ipfs/${cid}`;
+};
+
+// Build read-only contract instances for all configured networks
+const buildAllContracts = () => {
+  const result = [];
+  for (const [chainHex, cfg] of Object.entries(NETWORK_CONFIG)) {
+    const rpc = NETWORK_RPC[chainHex];
+    if (!rpc || !cfg.address || cfg.address === '0x0000000000000000000000000000000000000000') continue;
+    try {
+      const provider = new JsonRpcProvider(rpc);
+      const c = new Contract(cfg.address, CONTRACT_ABI, provider);
+      result.push({ chainHex, networkName: cfg.name, contract: c });
+    } catch {}
+  }
+  return result;
+};
+
 export default function TraceabilityLookup({ contract }) {
   const [searchType, setSearchType] = useState('id');
   const [searchValue, setSearchValue] = useState('');
@@ -77,15 +108,13 @@ export default function TraceabilityLookup({ contract }) {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  // Product image (base64 or URL string)
-  const [productImage, setProductImage] = useState(null);
-  const fileInputRef = useRef(null);
 
   const fromTs = ts => ts && ts > 0n
     ? new Date(Number(ts) * 1000).toLocaleDateString('vi-VN')
     : '—';
   const tsToDateTime = ts => new Date(Number(ts) * 1000).toLocaleString('vi-VN');
 
+  // Tra cứu theo ID — dùng tất cả mạng song song
   const lookupById = async (id) => {
     if (!id || isNaN(Number(id)) || Number(id) < 1) {
       setError('Vui lòng nhập mã lô hàng hợp lệ (số nguyên dương)');
@@ -94,12 +123,27 @@ export default function TraceabilityLookup({ contract }) {
     try {
       setLoading(true); setError(''); setResult(null); setSearchResults([]);
       const bid = BigInt(id);
-      const batch = await contract.batches(bid);
-      if (!batch || batch.batchId === 0n) { setError('Không tìm thấy lô hàng với mã này.'); return; }
-      const farm = await contract.farms(batch.farmId);
-      const logs = await contract.getBatchLogs(bid);
-      const inspections = await contract.getBatchInspections(bid);
-      setResult({ batch, farm, logs: [...logs].reverse(), inspections: [...inspections].reverse() });
+      const allContracts = buildAllContracts();
+
+      // Thêm contract của mạng hiện tại nếu có
+      const sources = contract ? [{ chainHex: 'current', networkName: 'Mạng hiện tại', contract }, ...allContracts] : allContracts;
+      
+      const promises = sources.map(async ({ chainHex, networkName, contract: c }) => {
+        try {
+          const batch = await c.batches(bid);
+          if (!batch || batch.batchId === 0n) return null;
+          const farm = await c.farms(batch.farmId);
+          const logs = await c.getBatchLogs(bid);
+          const inspections = await c.getBatchInspections(bid);
+          const logistics = await c.getBatchLogistics(bid);
+          return { batch, farm, logs: [...logs].reverse(), inspections: [...inspections].reverse(), logistics: [...logistics].reverse(), networkName };
+        } catch { return null; }
+      });
+
+      const results = await Promise.all(promises);
+      const found = results.find(r => r !== null);
+      if (!found) { setError('Không tìm thấy lô hàng với mã này trên tất cả các mạng.'); return; }
+      setResult(found);
     } catch (e) {
       setError('Lỗi khi tra cứu: ' + (e.reason || e.message));
     } finally {
@@ -107,22 +151,31 @@ export default function TraceabilityLookup({ contract }) {
     }
   };
 
+  // Tra cứu theo tên — tìm trên tất cả mạng song song
   const searchByName = async () => {
     if (!searchValue?.trim()) { setError('Vui lòng nhập tên nông sản cần tìm'); return; }
     try {
       setLoading(true); setError(''); setResult(null); setSearchResults([]);
-      const count = await contract.batchCount();
-      const matches = [];
       const query = searchValue.toLowerCase().trim();
-      for (let i = 1n; i <= count; i++) {
-        const batch = await contract.batches(i);
-        if (batch.productName.toLowerCase().includes(query)) {
-          const farm = await contract.farms(batch.farmId);
-          matches.push({ batch, farm });
-        }
-      }
-      if (matches.length === 0) setError('Không tìm thấy nông sản nào khớp tên này.');
-      else setSearchResults(matches);
+      const allContracts = buildAllContracts();
+      const sources = contract ? [{ chainHex: 'current', networkName: 'Mạng hiện tại', contract }, ...allContracts] : allContracts;
+
+      const allMatches = [];
+      await Promise.all(sources.map(async ({ networkName, contract: c }) => {
+        try {
+          const count = await c.batchCount();
+          for (let i = 1n; i <= count; i++) {
+            const batch = await c.batches(i);
+            if (batch.productName.toLowerCase().includes(query)) {
+              const farm = await c.farms(batch.farmId);
+              allMatches.push({ batch, farm, networkName });
+            }
+          }
+        } catch {}
+      }));
+
+      if (allMatches.length === 0) setError('Không tìm thấy nông sản nào khớp tên này trên tất cả các mạng.');
+      else setSearchResults(allMatches);
     } catch (e) {
       setError('Lỗi khi tìm kiếm: ' + (e.reason || e.message));
     } finally {
@@ -132,15 +185,6 @@ export default function TraceabilityLookup({ contract }) {
 
   const handleSearch = () => searchType === 'id' ? lookupById(searchValue) : searchByName();
   const statusInfo = result ? STATUS_LABELS[Number(result.batch.status)] : null;
-
-  // Handle image upload
-  const handleImageUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setProductImage(ev.target.result);
-    reader.readAsDataURL(file);
-  };
 
   return (
     <div className="trace-page-wrap">
@@ -216,11 +260,15 @@ export default function TraceabilityLookup({ contract }) {
                   >
                     <div className="trc-body">
                       <div className="trc-icon-panel">
-                        <div className="trc-icon-wrap">🌿</div>
+                        {item.batch.dataHash
+                          ? <img src={item.batch.dataHash.startsWith('data:') ? item.batch.dataHash : `https://ipfs.io/ipfs/${item.batch.dataHash}`} alt={item.batch.productName} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '12px' }} />
+                          : <div className="trc-icon-wrap">🌿</div>
+                        }
                       </div>
                       <div className="trc-mid">
                         <div className="trc-top-row">
                           <div className="trc-pill">Lô #{item.batch.batchId.toString()}</div>
+                          {item.networkName && <div className="trc-pill" style={{ background: 'rgba(14,165,233,0.12)', color: '#0284c7', border: '1px solid rgba(14,165,233,0.3)', fontSize: '10px' }}>⛓ {item.networkName}</div>}
                         </div>
                         <div className="trc-title">{item.batch.productName}</div>
                         <div className="trc-detail-rows">
@@ -250,7 +298,7 @@ export default function TraceabilityLookup({ contract }) {
       {/* ── Detailed Result View ── */}
       {result && (
         <div className="trace-detail-wrap">
-          <button className="trace-back-btn" onClick={() => { setResult(null); setSearchResults([]); setProductImage(null); }}>
+          <button className="trace-back-btn" onClick={() => { setResult(null); setSearchResults([]); }}>
             ← Quay lại tìm kiếm
           </button>
 
@@ -258,22 +306,12 @@ export default function TraceabilityLookup({ contract }) {
           <div className="trace-product-hero">
             <div className="tph-banner">
               <div className="tph-left">
-                {/* Product image — click to upload your own photo */}
-                <div className="tph-icon" title="Click để thay ảnh sản phẩm">
-                  {productImage
-                    ? <img src={productImage} alt="Sản phẩm" />
+                {/* Product image — from batch.dataHash on blockchain */}
+                <div className="tph-icon">
+                  {result.batch.dataHash
+                    ? <img src={result.batch.dataHash.startsWith('data:') ? result.batch.dataHash : `https://ipfs.io/ipfs/${result.batch.dataHash}`} alt={result.batch.productName} />
                     : <span>🌿</span>
                   }
-                  <div className="tph-icon-overlay">
-                    <IconUpload />
-                    <span>Đổi ảnh</span>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                    />
-                  </div>
                 </div>
                 <div>
                   <div className="tph-tag">📦 LÔ #{result.batch.batchId.toString()}</div>
@@ -287,6 +325,11 @@ export default function TraceabilityLookup({ contract }) {
                   Xác Thực Blockchain
                   <IconShield />
                 </div>
+                {result.networkName && (
+                  <div className="tph-status" style={{ background: 'rgba(14,165,233,0.12)', color: '#0284c7', border: '1px solid rgba(14,165,233,0.25)' }}>
+                    ⛓ {result.networkName}
+                  </div>
+                )}
                 <div className="tph-status">
                   {statusInfo?.icon} {statusInfo?.text}
                 </div>
@@ -345,8 +388,42 @@ export default function TraceabilityLookup({ contract }) {
             )}
           </div>
 
+          {/* Logistics Timeline */}
+          {result.logistics && result.logistics.length > 0 && (
+            <div>
+              <div className="trace-section-head" style={{ marginTop: '30px' }}>
+                <span className="tsh-icon">🚚</span>
+                Chuỗi Cung Ứng & Logistics
+              </div>
+              <div className="trace-timeline-wrap">
+                {result.logistics.map((loc, i) => (
+                  <AnimatedCard key={i} className={`trace-tl-item ${loc.anomaly ? 'has-anomaly' : ''}`} delay={i * 120}>
+                    <div className="trace-tl-dot" style={{ background: loc.anomaly ? '#ef4444' : '#0ea5e9', boxShadow: loc.anomaly ? '0 0 10px rgba(239,68,68,0.5)' : '' }} />
+                    <div className="trace-tl-card" style={loc.anomaly ? { border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.05)' } : {}}>
+                      <div className="ttc-header">
+                        <span className="ttc-time">{tsToDateTime(loc.timestamp)}</span>
+                        <span className="ttc-type" style={loc.anomaly ? { color: '#ef4444' } : {}}>{loc.eventType}</span>
+                      </div>
+                      <div className="ttc-desc">📍 {loc.location}</div>
+                      <div className="ttc-tags">
+                        <span className="ttc-tag">🌡 {Number(loc.temperature)}°C</span>
+                        <span className="ttc-tag">💧 {Number(loc.humidity)}%</span>
+                        {loc.operatorName && <span className="ttc-tag">👷 {loc.operatorName}</span>}
+                      </div>
+                      {loc.anomaly && (
+                         <div style={{ marginTop: '10px', color: '#fca5a5', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                           <IconX /> <strong>Cảnh Báo:</strong> {loc.anomaly}
+                         </div>
+                      )}
+                    </div>
+                  </AnimatedCard>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Certifications */}
-          <div>
+          <div style={{ marginTop: '30px' }}>
             <div className="trace-section-head">
               <span className="tsh-icon">🔬</span>
               Chứng Nhận &amp; Kiểm Định

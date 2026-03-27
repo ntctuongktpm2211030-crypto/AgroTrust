@@ -1,10 +1,52 @@
-// Tệp này tự động được tạo ra bởi scripts/deploy.js
-export const CONTRACT_ADDRESS = "0x8db9dfE04c1CF52aa01b3F21addCf628E1144561";
+// Tệp cấu hình Đa Mạng Lưới (Multi-Network)
+export const NETWORK_CONFIG = {
+  "0x88bb0": { // 560048 (Ethereum Hoodi Testnet)
+    name: "Ethereum Hoodi Testnet",
+    address: "0x13E09428920C8c6F8A2cCbc24794BD4cD4A8C4eA",
+  },
+  "0xaa36a7": { // 11155111 (Sepolia Testnet)
+    name: "Sepolia Testnet",
+    address: "0xEDA6667eC1D9CEE85183487dce538F5c45FA96F2", // Điền địa chỉ sau khi deploy
+  },
+  "0xaef3": { // 44787 (Celo Alfajores Testnet)
+    name: "Celo Alfajores Testnet",
+    address: "0x55dB029efC2C14976b8f3DFd7C3e5BBdf7fD07C2", 
+  },
+  "0x515": { // 1301 (Unichain Sepolia Testnet)
+    name: "Unichain Sepolia Testnet",
+    address: "0x55dB029efC2C14976b8f3DFd7C3e5BBdf7fD07C2",
+  }
+};
 export const CONTRACT_ABI = [
   {
     "inputs": [],
     "stateMutability": "nonpayable",
     "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "batchId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "anomalyType",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "details",
+        "type": "string"
+      }
+    ],
+    "name": "AnomalyAlert",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -168,6 +210,31 @@ export const CONTRACT_ABI = [
       }
     ],
     "name": "InspectorRemoved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "batchId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "eventType",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "anomaly",
+        "type": "string"
+      }
+    ],
+    "name": "LogisticsEventAdded",
     "type": "event"
   },
   {
@@ -338,6 +405,49 @@ export const CONTRACT_ABI = [
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_batchId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "_eventType",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_location",
+        "type": "string"
+      },
+      {
+        "internalType": "int256",
+        "name": "_temperature",
+        "type": "int256"
+      },
+      {
+        "internalType": "int256",
+        "name": "_humidity",
+        "type": "int256"
+      },
+      {
+        "internalType": "string",
+        "name": "_anomaly",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_operatorName",
+        "type": "string"
+      }
+    ],
+    "name": "addLogisticsEvent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "admin",
     "outputs": [
@@ -426,6 +536,75 @@ export const CONTRACT_ABI = [
       {
         "internalType": "string",
         "name": "inspectionHash",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "batchLogistics",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "eventId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "batchId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "eventType",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "location",
+        "type": "string"
+      },
+      {
+        "internalType": "int256",
+        "name": "temperature",
+        "type": "int256"
+      },
+      {
+        "internalType": "int256",
+        "name": "humidity",
+        "type": "int256"
+      },
+      {
+        "internalType": "string",
+        "name": "anomaly",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "operatorAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "operatorName",
         "type": "string"
       },
       {
@@ -751,6 +930,77 @@ export const CONTRACT_ABI = [
         "type": "uint256"
       }
     ],
+    "name": "getBatchLogistics",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "eventId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "batchId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "eventType",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "location",
+            "type": "string"
+          },
+          {
+            "internalType": "int256",
+            "name": "temperature",
+            "type": "int256"
+          },
+          {
+            "internalType": "int256",
+            "name": "humidity",
+            "type": "int256"
+          },
+          {
+            "internalType": "string",
+            "name": "anomaly",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "operatorAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "operatorName",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct LogisticsEvent[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_batchId",
+        "type": "uint256"
+      }
+    ],
     "name": "getBatchLogs",
     "outputs": [
       {
@@ -907,6 +1157,19 @@ export const CONTRACT_ABI = [
   {
     "inputs": [],
     "name": "logCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "logisticsCount",
     "outputs": [
       {
         "internalType": "uint256",

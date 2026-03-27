@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { BrowserProvider, Contract, formatEther } from 'ethers';
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from "./config.js";
+import { NETWORK_CONFIG, CONTRACT_ABI } from "./config.js";
 import FarmDashboard from "./components/FarmDashboard.jsx";
 import BatchDashboard from "./components/BatchDashboard.jsx";
 import LogDashboard from "./components/LogDashboard.jsx";
 import InspectionDashboard from "./components/InspectionDashboard.jsx";
 import TraceabilityLookup from "./components/TraceabilityLookup.jsx";
+import AnalyticsDashboard from "./components/AnalyticsDashboard.jsx";
 import './index.css';
 
 const TABS = [
@@ -39,6 +40,12 @@ const TABS = [
     grad: 'linear-gradient(135deg,#ccfbf1,#f0fdfa)',
     tag: 'Blockchain'
   },
+  {
+    key: 'analytics', icon: '📊', label: 'Thống Kê Logistics', desc: 'Dashboard phân tích và cảnh báo chuỗi sự kiện',
+    color: '#f43f5e', glow: 'rgba(244,63,94,.35)',
+    grad: 'linear-gradient(135deg,#ffe4e6,#fff1f2)',
+    tag: 'Phân tích'
+  },
 ];
 
 function App() {
@@ -48,15 +55,41 @@ function App() {
   const [errorMsg, setErrorMsg] = useState("");
   const [activeTab, setActiveTab] = useState(null);
   const [userRole, setUserRole] = useState(null); // 'owner' or 'customer'
+  const [currentNetworkName, setCurrentNetworkName] = useState("");
+  const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
-    checkConnection();
+    // Tắt tính năng tự động ghi nhớ đăng nhập theo yêu cầu của user
+    // checkConnection();
     if (window.ethereum) {
       window.ethereum.on("accountsChanged", handleAccountsChanged);
       window.ethereum.on("chainChanged", () => window.location.reload());
     }
   }, []);
 
+  useEffect(() => {
+    if (!contract) return;
+    const onLogistics = (batchId, eventType, anomaly) => {
+      addToast(`Lô #${batchId} cập nhật: ${eventType}`, anomaly ? 'error' : 'info');
+    };
+    const onAnomaly = (batchId, anomalyType, details) => {
+      addToast(`🚨 Cảnh báo Lô #${batchId}: ${details}`, 'error');
+    };
+    contract.on("LogisticsEventAdded", onLogistics);
+    contract.on("AnomalyAlert", onAnomaly);
+    return () => {
+      contract.off("LogisticsEventAdded", onLogistics);
+      contract.off("AnomalyAlert", onAnomaly);
+    };
+  }, [contract]);
+
+  const addToast = (msg, type = 'info') => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, msg, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 5000);
+  };
   const handleAccountsChanged = async (accounts) => {
     if (accounts.length === 0) disconnectWallet();
     else await connectWallet();
@@ -82,29 +115,17 @@ function App() {
     try {
       setErrorMsg("⏳ Đang kết nối MetaMask...");
 
-      const targetChainId = "0x88bb0"; // 560048 (Ethereum Hoodi)
       const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
-
-      if (currentChainId !== targetChainId) {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: targetChainId }],
-          });
-        } catch (switchError) {
-          if (switchError.code === 4902) {
-            await window.ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: targetChainId,
-                chainName: "Ethereum Hoodi",
-                rpcUrls: ["https://rpc.hoodi.ethpandaops.io"],
-                nativeCurrency: { name: "Ethereum", symbol: "ETH", decimals: 18 },
-              }],
-            });
-          } else { throw switchError; }
-        }
+      const currentChainHex = currentChainId.toLowerCase();
+      
+      const networkData = NETWORK_CONFIG[currentChainHex];
+      
+      if (!networkData) {
+        setErrorMsg(`Mạng không hỗ trợ (Mã của bạn đang là: ${currentChainHex})! Vui lòng chọn Hoodi, Sepolia, Celo Alfajores hoặc Unichain.`);
+        return;
       }
+
+      setCurrentNetworkName(networkData.name);
 
       const provider = new BrowserProvider(window.ethereum);
       const accounts = await provider.send("eth_requestAccounts", []);
@@ -115,13 +136,14 @@ function App() {
       setBalance(parseFloat(formatEther(bal)).toFixed(4));
 
       const signer = await provider.getSigner();
-      if (CONTRACT_ADDRESS && CONTRACT_ABI) {
-        const contractInstance = new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      if (networkData.address && networkData.address !== "0x0000000000000000000000000000000000000000" && CONTRACT_ABI) {
+        const contractInstance = new Contract(networkData.address, CONTRACT_ABI, signer);
         setContract(contractInstance);
         localStorage.setItem('walletConnected', 'true');
         setErrorMsg("");
       } else {
-        setErrorMsg("Thiếu file config.js của Smart Contract");
+        setContract(null);
+        setErrorMsg(`Chưa gắn Hợp Đồng (Contract) lên mạng ${networkData.name}. Giờ hãy chuyển lại Hoodi nhé!`);
       }
     } catch (error) {
       if (error.code === 4001) setErrorMsg("Bạn đã từ chối kết nối.");
@@ -140,7 +162,7 @@ function App() {
 
   const filteredTabs = TABS.filter(t => {
     if (!userRole) return false;
-    if (userRole === 'owner') return ['farm', 'batch', 'log', 'inspection'].includes(t.key);
+    if (userRole === 'owner') return ['farm', 'batch', 'log', 'inspection', 'analytics'].includes(t.key);
     if (userRole === 'customer') return t.key === 'trace';
     return false;
   });
@@ -153,6 +175,7 @@ function App() {
       case 'log': return <LogDashboard contract={contract} account={account} />;
       case 'inspection': return <InspectionDashboard contract={contract} account={account} />;
       case 'trace': return <TraceabilityLookup contract={contract} />;
+      case 'analytics': return <AnalyticsDashboard contract={contract} account={account} />;
       default: return null;
     }
   };
@@ -183,12 +206,11 @@ function App() {
 
       {/* ── PARALLAX LUSH GRASS ── (REMOVED) */}
 
-
       {!account ? (
         /* ── LOGIN SCREEN ── */
         <div className="login-card glass-card">
           <div className="logo">
-            <span className="icon">🌱</span>
+            <img src="/Logo.png" alt="AgroTrust Logo" className="icon" style={{ height: '36px', width: 'auto' }} />
             <h1>AgroTrust</h1>
           </div>
           <p className="subtitle">Nền tảng Truy xuất Nông sản Blockchain</p>
@@ -198,7 +220,7 @@ function App() {
             alt="MetaMask" className="metamask-logo"
           />
 
-          <div className="network-badge">Ethereum Hoodi Testnet</div>
+          <div className="network-badge" style={{ padding: '8px 16px' }}>Hỗ trợ: Hoodi | Sepolia | Celo | Unichain</div>
 
           <h2>Kết nối Ví Web3</h2>
           <p>Kết nối ví MetaMask để quản lý và truy xuất nông sản trên Blockchain một cách minh bạch.</p>
@@ -215,7 +237,7 @@ function App() {
         <div className="role-selection-wrapper">
           <div className="role-selection-header">
             <div className="logo" style={{ justifyContent: 'center', marginBottom: '15px' }}>
-              <span className="icon">🌱</span>
+              <img src="/Logo.png" alt="AgroTrust Logo" className="icon" style={{ height: '36px', width: 'auto' }} />
               <h1>AgroTrust</h1>
             </div>
             <h2>Chào mừng bạn trở lại!</h2>
@@ -259,7 +281,7 @@ function App() {
             {/* Logo */}
             <div className="sidebar-logo-section">
               <div className="logo">
-                <span className="icon">🌱</span>
+                <img src="/Logo.png" alt="AgroTrust Logo" className="icon" style={{ height: '32px', width: 'auto' }} />
                 <h1 style={{ cursor: 'pointer' }} onClick={() => setUserRole(null)}>AgroTrust</h1>
               </div>
             </div>
@@ -272,6 +294,10 @@ function App() {
                 <div className="wallet-bal">{balance} ETH</div>
               </div>
               <div className="online-dot"></div>
+            </div>
+
+            <div className="network-badge" style={{ fontSize: '11px', margin: '0 0 16px 0', alignSelf: 'center', background: 'rgba(255,255,255,0.1)', color: 'var(--emerald-light)' }}>
+              🌐 {currentNetworkName}
             </div>
 
             {/* Nav */}
@@ -401,6 +427,27 @@ function App() {
           </main>
         </div>
       )}
+
+      {/* TOAST NOTIFICATIONS */}
+      <div className="toast-container" style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {toasts.map(t => (
+          <div key={t.id} className="toast fade-in" style={{
+            background: t.type === 'error' ? 'rgba(239,68,68,0.9)' : 'rgba(16,185,129,0.9)',
+            color: '#fff',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            fontSize: '14px',
+            fontWeight: 500,
+            animation: 'slideUp 0.3s ease-out forwards'
+          }}>
+            {t.msg}
+          </div>
+        ))}
+      </div>
+
     </div>
   );
 }

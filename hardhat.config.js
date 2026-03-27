@@ -18,8 +18,16 @@ if (PRIVATE_KEY && PRIVATE_KEY.length === 66 && PRIVATE_KEY !== "0x0000000000000
     url: process.env.SEPOLIA_RPC_URL || "https://rpc.sepolia.org",
     accounts: [PRIVATE_KEY]
   };
-  config.networks.amoy = {
-    url: process.env.POLYGON_AMOY_RPC_URL || "https://rpc-amoy.polygon.technology/",
+  config.networks.hoodi = {
+    url: process.env.HOODI_RPC_URL || "https://rpc.hoodi.ethpandaops.io",
+    accounts: [PRIVATE_KEY]
+  };
+  config.networks.celo = {
+    url: process.env.CELO_RPC_URL || "https://alfajores-forno.celo-testnet.org",
+    accounts: [PRIVATE_KEY]
+  };
+  config.networks.unichain = {
+    url: process.env.UNICHAIN_RPC_URL || "https://sepolia.unichain.org",
     accounts: [PRIVATE_KEY]
   };
 }
