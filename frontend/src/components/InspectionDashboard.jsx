@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { uploadBase64ToPinata } from '../utils/pinata';
+import { ShieldCheck, Key, Loader2, FileSignature, FolderOpen, FileText, MessageSquare, Paperclip } from 'lucide-react';
 
 const OPEN_INSPECTION_FOR_ALL = true;
 
@@ -188,7 +189,7 @@ export default function InspectionDashboard({ contract, account }) {
     <div className="dash-wrap">
       {/* Header */}
       <div className="dash-header">
-        <div className="dash-icon">🔬</div>
+        <div className="dash-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShieldCheck size={36}/></div>
         <div>
           <div className="dash-title">Kiểm Định Lô Hàng</div>
           <div className="dash-subtitle">Ghi nhận và tra cứu phiếu kiểm định chất lượng nông sản</div>
@@ -246,8 +247,9 @@ export default function InspectionDashboard({ contract, account }) {
                     className="btn amber-btn"
                     onClick={grantInspector}
                     disabled={grantingRole}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                   >
-                    {grantingRole ? '⏳ Đang cấp...' : '🔑 Cấp Quyền Inspector'}
+                    {grantingRole ? <><Loader2 size={16} className="tsb-spin" /> Đang cấp...</> : <><Key size={16} /> Cấp Quyền Inspector</>}
                   </button>
                 </div>
               </div>
@@ -285,7 +287,7 @@ export default function InspectionDashboard({ contract, account }) {
 
       {/* Form Card */}
       <div className="card-panel glass-card">
-        <h3>📝 Ghi Phiếu Kiểm Định</h3>
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><FileSignature size={24} /> Ghi Phiếu Kiểm Định</h3>
         <form className="custom-form" onSubmit={handleSubmit}>
           <div className="form-row">
             <div className="form-group">
@@ -337,8 +339,8 @@ export default function InspectionDashboard({ contract, account }) {
               <label>Hash tài liệu (IPFS/PDF)</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input style={{ flex: 1 }} value={form.inspectionHash} onChange={set('inspectionHash')} placeholder="QmXoypiz... (tùy chọn)" />
-                <label className="btn-outline" style={{ cursor: 'pointer', padding: '10px', fontSize: '13px', minWidth: '135px', textAlign: 'center', background: 'rgba(255,255,255,0.05)' }}>
-                  {uploadingPdf ? '⏳ Đang tải...' : '📎 Upload PDF/Ảnh'}
+                <label className="btn-outline" style={{ cursor: 'pointer', padding: '10px', fontSize: '13px', minWidth: '135px', textAlign: 'center', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  {uploadingPdf ? <><Loader2 size={16} className="tsb-spin" /> Đang tải...</> : <><Paperclip size={16}/> Upload PDF/Ảnh</>}
                   <input type="file" accept="application/pdf,image/*" style={{ display: 'none' }} onChange={handlePdfUpload} disabled={uploadingPdf} />
                 </label>
               </div>
@@ -346,16 +348,16 @@ export default function InspectionDashboard({ contract, account }) {
           </div>
 
           {msg && <p className={`form-msg ${msg.startsWith('✅') ? 'success' : msg.startsWith('❌') ? 'error-msg' : ''}`}>{msg}</p>}
-          <button type="submit" className="btn primary-btn" disabled={loading}>
-            {loading ? '⏳ Đang xử lý...' : '🔬 Ghi Phiếu Kiểm Định'}
+          <button type="submit" className="btn primary-btn" disabled={loading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            {loading ? <><Loader2 size={18} className="tsb-spin" /> Đang xử lý...</> : <><ShieldCheck size={18} /> Ghi Phiếu Kiểm Định</>}
           </button>
         </form>
       </div>
 
       {/* Results */}
       <div className="card-panel glass-card">
-        <h3>
-          🗂️ Hồ Sơ Kiểm Định
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <FolderOpen size={24} /> Hồ Sơ Kiểm Định
           {selectedBatch && <span style={{ color: 'var(--text-secondary)', fontWeight: 400, fontSize: '14px' }}>— Lô #{selectedBatch}</span>}
           <span style={{ marginLeft: 'auto', background: 'rgba(16,185,129,.12)', border: '1px solid rgba(16,185,129,.2)', color: 'var(--emerald-light)', padding: '2px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600 }}>
             {inspections.length} phiếu
@@ -384,8 +386,8 @@ export default function InspectionDashboard({ contract, account }) {
                     </div>
                   </div>
                   <div className="divider" style={{ margin: '10px 0' }}></div>
-                  <span>📋 {ins.inspectionContent}</span>
-                  {ins.note && <span>📝 Nhận xét: {ins.note}</span>}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FileText size={14}/> {ins.inspectionContent}</span>
+                  {ins.note && <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b' }}><MessageSquare size={14}/> Nhận xét: {ins.note}</span>}
                   <div style={{ marginTop: '4px' }}>
                     <span className={`active-badge ${ins.approvalStatus === 'Đã duyệt' ? '' : ins.approvalStatus === 'Chờ duyệt' ? 'badge-amber' : 'inactive'}`}>
                       {ins.approvalStatus}

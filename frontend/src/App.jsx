@@ -7,59 +7,77 @@ import LogDashboard from "./components/LogDashboard.jsx";
 import InspectionDashboard from "./components/InspectionDashboard.jsx";
 import TraceabilityLookup from "./components/TraceabilityLookup.jsx";
 import AnalyticsDashboard from "./components/AnalyticsDashboard.jsx";
+import { Tractor, Wheat, FileText, ShieldCheck, Search, Building2, Package, Sprout, TrendingUp } from 'lucide-react';
 import './index.css';
+
+const ColorfulBatchIcon = () => (
+  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 4px 6px rgba(202, 138, 4, 0.2))' }}>
+    <path d="M12 2.5L2.5 7.5L12 12.5L21.5 7.5L12 2.5Z" fill="#FDE047" stroke="#CA8A04" strokeWidth="1.8" strokeLinejoin="round"/>
+    <path d="M2.5 7.5V16.5L12 21.5V12.5L2.5 7.5Z" fill="#FACC15" stroke="#CA8A04" strokeWidth="1.8" strokeLinejoin="round"/>
+    <path d="M21.5 7.5V16.5L12 21.5V12.5L21.5 7.5Z" fill="#FEF08A" stroke="#CA8A04" strokeWidth="1.8" strokeLinejoin="round"/>
+    <path d="M12 12.5L6.5 9.5" stroke="#CA8A04" strokeWidth="1.8" strokeLinecap="round"/>
+  </svg>
+);
+
+const ColorfulFarmIcon = () => (
+  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0 4px 6px rgba(22, 163, 74, 0.2))' }}>
+    <circle cx="17" cy="7" r="4" fill="#FDE047" stroke="#CA8A04" strokeWidth="1.5"/>
+    <path d="M2 20L12 9L22 20H2Z" fill="#86EFAC" stroke="#16A34A" strokeWidth="1.8" strokeLinejoin="round"/>
+    <path d="M2 20L8 13L16 20H2Z" fill="#4ADE80" stroke="#16A34A" strokeWidth="1.8" strokeLinejoin="round"/>
+  </svg>
+);
 
 const TABS = [
   {
-    key: 'farm', icon: '🏡', label: 'Nông Trại', desc: 'Đăng ký & quản lý thông tin nông trại',
+    key: 'farm', icon: <ColorfulFarmIcon />, label: 'Nông Trại', desc: 'Đăng ký & quản lý thông tin nông trại',
     color: '#16a34a', glow: 'rgba(22,163,74,.35)',
     grad: 'linear-gradient(135deg,#bbf7d0,#dcfce7)',
     tag: 'Quản lý'
   },
   {
-    key: 'batch', icon: '🌾', label: 'Lô Hàng', desc: 'Tạo & theo dõi từng lô sản phẩm',
-    color: '#ca8a04', glow: 'rgba(202,138,4,.35)',
+    key: 'batch', icon: <ColorfulBatchIcon />, label: 'Lô Hàng', desc: 'Tạo & theo dõi từng lô sản phẩm',
+    color: '#ca8a04', glow: 'rgba(202,138,4,.45)',
     grad: 'linear-gradient(135deg,#fef3c7,#fef9c3)',
     tag: 'Truy xuất'
   },
   {
-    key: 'log', icon: '📓', label: 'Nhật Ký Canh Tác', desc: 'Ghi chép lịch sử chăm sóc & thu hoạch',
+    key: 'log', icon: <FileText size={32} color="#0284c7" strokeWidth={2.2} />, label: 'Nhật Ký Canh Tác', desc: 'Ghi chép lịch sử chăm sóc & thu hoạch',
     color: '#0284c7', glow: 'rgba(2,132,199,.35)',
     grad: 'linear-gradient(135deg,#e0f2fe,#f0f9ff)',
     tag: 'Ghi chép'
   },
   {
-    key: 'inspection', icon: '🔬', label: 'Kiểm Định', desc: 'Phiếu kiểm định & chứng nhận chất lượng',
+    key: 'inspection', icon: <ShieldCheck size={32} color="#7c3aed" strokeWidth={2.2} />, label: 'Kiểm Định', desc: 'Phiếu kiểm định & chứng nhận chất lượng',
     color: '#7c3aed', glow: 'rgba(124,58,237,.35)',
     grad: 'linear-gradient(135deg,#ede9fe,#f5f3ff)',
     tag: 'Chứng nhận'
   },
   {
-    key: 'trace', icon: '🔍', label: 'Tra Cứu Nguồn Gốc', desc: 'Truy xuất toàn bộ hành trình sản phẩm',
+    key: 'trace', icon: <Search size={32} color="#0f766e" strokeWidth={2.2} />, label: 'Tra Cứu Nguồn Gốc', desc: 'Truy xuất toàn bộ hành trình sản phẩm',
     color: '#0f766e', glow: 'rgba(15,118,110,.35)',
     grad: 'linear-gradient(135deg,#ccfbf1,#f0fdfa)',
     tag: 'Blockchain'
   },
   {
-    key: 'customerFarms', icon: '🏡', label: 'DS Nông Trại', desc: 'Danh sách công khai các nông trại',
+    key: 'customerFarms', icon: <Building2 size={32} color="#16a34a" strokeWidth={2.2} />, label: 'DS Nông Trại', desc: 'Danh sách công khai các nông trại',
     color: '#16a34a', glow: 'rgba(22,163,74,.35)',
     grad: 'linear-gradient(135deg,#dcfce7,#f0fdf4)',
     tag: 'Công khai'
   },
   {
-    key: 'customerBatches', icon: '📦', label: 'DS Lô Hàng', desc: 'Danh sách công khai các lô hàng',
+    key: 'customerBatches', icon: <Package size={32} color="#ca8a04" strokeWidth={2.2} />, label: 'DS Lô Hàng', desc: 'Danh sách công khai các lô hàng',
     color: '#ca8a04', glow: 'rgba(202,138,4,.35)',
     grad: 'linear-gradient(135deg,#fef9c3,#fffbeb)',
     tag: 'Công khai'
   },
   {
-    key: 'customerCrops', icon: '🥬', label: 'DS Nông Sản', desc: 'Phân loại nông sản công khai',
+    key: 'customerCrops', icon: <Sprout size={32} color="#0d9488" strokeWidth={2.2} />, label: 'DS Nông Sản', desc: 'Phân loại nông sản công khai',
     color: '#0d9488', glow: 'rgba(13,148,136,.35)',
     grad: 'linear-gradient(135deg,#ccfbf1,#f0fdfa)',
     tag: 'Phân loại'
   },
   {
-    key: 'analytics', icon: '📊', label: 'Thống Kê Logistics', desc: 'Dashboard phân tích và cảnh báo chuỗi sự kiện',
+    key: 'analytics', icon: <TrendingUp size={32} color="#f43f5e" strokeWidth={2.2} />, label: 'Thống Kê Logistics', desc: 'Dashboard phân tích và cảnh báo chuỗi sự kiện',
     color: '#f43f5e', glow: 'rgba(244,63,94,.35)',
     grad: 'linear-gradient(135deg,#ffe4e6,#fff1f2)',
     tag: 'Phân tích'

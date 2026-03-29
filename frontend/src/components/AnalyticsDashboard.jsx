@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { CheckCircle2, Truck, AlertTriangle } from 'lucide-react';
 
 const AnalyticsDashboard = ({ contract, account }) => {
     const [stats, setStats] = useState({
@@ -414,15 +415,15 @@ const AnalyticsDashboard = ({ contract, account }) => {
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
                     <div style={{ fontSize: '13px', color: 'var(--text-3)', lineHeight: '1.6' }}>
-                        <strong style={{ color: 'var(--text-1)', display: 'block', marginBottom: '6px' }}>✅ Tỷ lệ đạt chuẩn</strong>
+                        <strong style={{ color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}><CheckCircle2 size={16} color="#16a34a"/> Tỷ lệ đạt chuẩn</strong>
                         Phần trăm số lượng lô hàng đã vượt qua ít nhất một đợt kiểm định chất lượng minh bạch.
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--text-3)', lineHeight: '1.6' }}>
-                        <strong style={{ color: 'var(--text-1)', display: 'block', marginBottom: '6px' }}>🚚 Thời gian lưu chuyển</strong>
+                        <strong style={{ color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}><Truck size={16} color="#0ea5e9"/> Thời gian lưu chuyển</strong>
                         Được tính từ lúc gieo trồng hoặc ghi nhận kiện hàng đầu tiên cho đến khi có sự kiện Giao hàng / Phân phối.
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--text-3)', lineHeight: '1.6' }}>
-                        <strong style={{ color: 'var(--text-1)', display: 'block', marginBottom: '6px' }}>⚠️ Cảnh báo (Anomalies)</strong>
+                        <strong style={{ color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}><AlertTriangle size={16} color="#f59e0b"/> Cảnh báo (Anomalies)</strong>
                         Các sự kiện vi phạm nhiệt độ kho lạnh {">30°C / <2°C"} hoặc độ ẩm được cảm biến ghi nhận tự động trên chuỗi khối bảo mật.
                     </div>
                 </div>

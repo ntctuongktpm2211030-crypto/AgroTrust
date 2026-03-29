@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 
 import { getIpfsUrl } from '../utils/pinata';
+import { BookText, Image as ImageIcon, Loader2, PenLine, FileText, Beaker, User, Sun, Radio, Pin } from 'lucide-react';
 
 const ACTION_TYPES = ['Tưới nước','Bón phân','Phun thuốc','Làm cỏ','Thu hoạch','Kiểm tra định kỳ','Khác'];
 
@@ -126,7 +127,7 @@ export default function LogDashboard({ contract, account }) {
 
   return (
     <div className="dash-wrap">
-      <h2 className="dash-title">📓 Nhật Ký Canh Tác</h2>
+      <h2 className="dash-title"><BookText size={28} style={{ display: 'inline-block', verticalAlign: 'text-bottom', marginRight: '8px' }} /> Nhật Ký Canh Tác</h2>
 
       <div className="card-panel glass-card">
         <h3>Ghi nhật ký mới</h3>
@@ -161,8 +162,8 @@ export default function LogDashboard({ contract, account }) {
                   </div>
                 </>
               ) : (
-                <div className="bcp-no-image">
-                  🖼 <strong>"{cropPreview.cropType}"</strong> chưa có ảnh.
+                <div className="bcp-no-image" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ImageIcon size={18} /> <strong>"{cropPreview.cropType}"</strong> chưa có ảnh.
                 </div>
               )}
             </div>
@@ -194,7 +195,7 @@ export default function LogDashboard({ contract, account }) {
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>📡 Dữ liệu IoT (Nếu có)</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Radio size={16}/> Dữ liệu IoT (Nếu có)</label>
               <input value={form.iotData} onChange={set('iotData')} placeholder="VD: Nhiệt độ: 28°C, Độ ẩm: 65%" />
             </div>
             <div className="form-group">
@@ -203,8 +204,8 @@ export default function LogDashboard({ contract, account }) {
             </div>
           </div>
           {msg && <p className={`form-msg ${msg.startsWith('✅') ? 'success' : msg.startsWith('❌') ? 'error-msg' : ''}`}>{msg}</p>}
-          <button type="submit" className="btn primary-btn" disabled={loading}>
-            {loading ? '⏳ Đang xử lý...' : '📝 Ghi Nhật Ký'}
+          <button type="submit" className="btn primary-btn" disabled={loading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            {loading ? <><Loader2 size={18} className="tsb-spin" /> Đang xử lý...</> : <><PenLine size={18} /> Ghi Nhật Ký</>}
           </button>
         </form>
       </div>
@@ -219,12 +220,12 @@ export default function LogDashboard({ contract, account }) {
               <div className="farm-item" key={idx}>
                 <div className="farm-id">#{l.logId.toString()} — {tsToDate(l.timestamp)}</div>
                 <div className="farm-title">{l.actionType}</div>
-                <span>📋 {l.description}</span>
-                {l.materialName && <span>🧪 {l.materialName} — {l.dosage}</span>}
-                {l.operatorName && <span>👷 {l.operatorName}</span>}
-                {l.weatherCondition && <span>🌤️ {l.weatherCondition}</span>}
-                {l.iotData && <span>📡 {l.iotData}</span>}
-                {l.note && <span>📌 {l.note}</span>}
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FileText size={14}/> {l.description}</span>
+                {l.materialName && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Beaker size={14}/> {l.materialName} <span className="mx-2">—</span> {l.dosage}</span>}
+                {l.operatorName && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><User size={14}/> {l.operatorName}</span>}
+                {l.weatherCondition && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Sun size={14}/> {l.weatherCondition}</span>}
+                {l.iotData && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Radio size={14}/> {l.iotData}</span>}
+                {l.note && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Pin size={14}/> {l.note}</span>}
               </div>
             ))}
           </div>

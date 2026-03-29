@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { getIpfsUrl } from '../utils/pinata';
+import { Wheat, Image as ImageIcon, PlusCircle, Loader2, Home, Leaf, MapPin, Sprout, Calendar, Package, Link, Truck, Thermometer, Droplets, AlertTriangle, User } from 'lucide-react';
 
 const STATUS_LABELS = ['Đã gieo trồng','Đang chăm sóc','Đã bón phân','Đã phun thuốc','Đã thu hoạch','Đã đóng gói','Đang vận chuyển','Đã kiểm định','Đã phân phối'];
 
@@ -162,7 +163,7 @@ export default function BatchDashboard({ contract, account }) {
 
   return (
     <div className="dash-wrap">
-      <h2 className="dash-title">🌾 Quản Lý Lô Hàng</h2>
+      <h2 className="dash-title"><Wheat size={28} style={{ display: 'inline-block', verticalAlign: 'text-bottom', marginRight: '8px' }} /> Quản Lý Lô Hàng</h2>
 
       {!showAllBatchesPage && (
       <div className="card-panel glass-card">
@@ -228,8 +229,8 @@ export default function BatchDashboard({ contract, account }) {
                   </div>
                 </>
               ) : (
-                <div className="bcp-no-image">
-                  🖼 Nông sản <strong>"{cropPreview.cropType}"</strong> chưa có ảnh —
+                <div className="bcp-no-image" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ImageIcon size={18} /> Nông sản <strong>"{cropPreview.cropType}"</strong> chưa có ảnh —
                   <span> vào <em>Quản Lý Nông Trại</em> upload để người tra cứu dễ nhận diện.</span>
                 </div>
               )}
@@ -269,8 +270,8 @@ export default function BatchDashboard({ contract, account }) {
             </div>
           </div>
           {msg && <p className={`form-msg ${msg.startsWith('✅') ? 'success' : msg.startsWith('❌') ? 'error-msg' : ''}`}>{msg}</p>}
-          <button type="submit" className="btn primary-btn" disabled={loading}>
-            {loading ? '⏳ Đang xử lý...' : '🚀 Tạo Lô Hàng'}
+          <button type="submit" className="btn primary-btn" disabled={loading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            {loading ? <><Loader2 size={18} className="tsb-spin"/> Đang xử lý...</> : <><PlusCircle size={18}/> Tạo Lô Hàng</>}
           </button>
         </form>
       </div>
@@ -329,10 +330,10 @@ export default function BatchDashboard({ contract, account }) {
                   )}
                   <div className="farm-id">Lô #{b.batchId.toString()}</div>
                   <div className="farm-title">{b.productName}</div>
-                  <span>🏡 Nông trại #{b.farmId.toString()} — 🌿 {b.plantType}</span>
-                  <span>📍 {b.cultivationArea}</span>
-                  <span>🌱 Gieo: {fromTs(b.sowingDate)} — 🗓️ Thu hoạch: {fromTs(b.expectedHarvestDate)}</span>
-                  <span>📦 Dự kiến: {b.expectedQuantity.toString()} {b.quantityUnit}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Home size={14}/> Nông trại #{b.farmId.toString()} <span className="mx-2">—</span> <Leaf size={14}/> {b.plantType}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={14}/> {b.cultivationArea}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Sprout size={14}/> Gieo: {fromTs(b.sowingDate)} <span className="mx-2">—</span> <Calendar size={14}/> Thu hoạch: {fromTs(b.expectedHarvestDate)}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Package size={14}/> Dự kiến: {b.expectedQuantity.toString()} {b.quantityUnit}</span>
                   <span className="active-badge">{STATUS_LABELS[Number(b.status)]}</span>
                   
                   {/* QR Code Section - Redesigned */}
@@ -343,13 +344,13 @@ export default function BatchDashboard({ contract, account }) {
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
                       <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Quét truy xuất nhanh</div>
                       <button onClick={() => { navigator.clipboard.writeText(window.location.origin + '?batchId=' + b.batchId.toString()); setMsg('✅ Đã copy link Lô ' + b.batchId); }} style={{ fontSize: '10px', padding: '4px 8px', borderRadius: '4px', background: 'rgba(14,165,233,0.1)', color: '#38bdf8', border: '1px solid rgba(14,165,233,0.3)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', width: 'fit-content', transition: 'all 0.2s', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        🔗 Copy link
+                        <Link size={12}/> Copy link
                       </button>
                     </div>
                   </div>
 
-                  <button onClick={() => setLogisticsForm({ batchId: b.batchId.toString(), eventType: 'Đóng gói', location: '', temperature: '', humidity: '', anomaly: '', operatorName: '' })} className="btn primary-btn" style={{marginTop: '12px', fontSize: '14px', padding: '10px', width: '100%', background: '#ffffff', border: '1px solid rgba(16,185,129,0.4)', color: '#059669', fontWeight: 700, borderRadius: '12px', boxShadow: '0 4px 12px rgba(16,185,129,0.15)'}}>
-                    🚚 Cập nhật Logistics
+                  <button onClick={() => setLogisticsForm({ batchId: b.batchId.toString(), eventType: 'Đóng gói', location: '', temperature: '', humidity: '', anomaly: '', operatorName: '' })} className="btn primary-btn" style={{marginTop: '12px', fontSize: '14px', padding: '10px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#ffffff', border: '1px solid rgba(16,185,129,0.4)', color: '#059669', fontWeight: 700, borderRadius: '12px', boxShadow: '0 4px 12px rgba(16,185,129,0.15)'}}>
+                    <Truck size={18}/> Cập nhật Logistics
                   </button>
                 </div>
               );
@@ -371,7 +372,7 @@ export default function BatchDashboard({ contract, account }) {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h3 style={{ margin: 0, fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px', color: '#1e293b' }}>
-                <span style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', fontSize: '18px' }}>🚚</span>
+                <span style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' }}><Truck size={20}/></span>
                 Cập Nhật Logistics
               </h3>
               <div style={{ background: '#f1f5f9', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, color: '#475569' }}>
@@ -394,7 +395,7 @@ export default function BatchDashboard({ contract, account }) {
                <div className="form-group">
                  <label style={{ fontSize: '13px', color: '#64748b' }}>Địa điểm / Tọa độ <span className="req">*</span></label>
                  <div style={{ position: 'relative' }}>
-                   <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }}>📍</span>
+                   <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.8, color: '#64748b' }}><MapPin size={16}/></span>
                    <input required value={logisticsForm.location} onChange={e => setLogisticsForm({...logisticsForm, location: e.target.value})} placeholder="Kho trung chuyển A..." style={{ background: '#f8fafc', color: '#1e293b', borderRadius: '12px', paddingLeft: '40px', border: '1px solid #e2e8f0' }} />
                  </div>
                </div>
@@ -403,14 +404,14 @@ export default function BatchDashboard({ contract, account }) {
                  <div className="form-group" style={{flex:1}}>
                    <label style={{ fontSize: '13px', color: '#64748b' }}>Nhiệt độ (°C)</label>
                    <div style={{ position: 'relative' }}>
-                     <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 1, color: '#ef4444' }}>🌡️</span>
+                     <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 1, color: '#ef4444' }}><Thermometer size={16}/></span>
                      <input required type="number" step="0.1" value={logisticsForm.temperature} onChange={e => setLogisticsForm({...logisticsForm, temperature: e.target.value})} placeholder="Ví dụ: 25" style={{ background: '#f8fafc', color: '#1e293b', borderRadius: '12px', paddingLeft: '40px', border: '1px solid #e2e8f0' }} />
                    </div>
                  </div>
                  <div className="form-group" style={{flex:1}}>
                    <label style={{ fontSize: '13px', color: '#64748b' }}>Độ ẩm (%)</label>
                    <div style={{ position: 'relative' }}>
-                     <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 1, color: '#0ea5e9' }}>💧</span>
+                     <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 1, color: '#0ea5e9' }}><Droplets size={16}/></span>
                      <input required type="number" step="0.1" value={logisticsForm.humidity} onChange={e => setLogisticsForm({...logisticsForm, humidity: e.target.value})} placeholder="Ví dụ: 60" style={{ background: '#f8fafc', color: '#1e293b', borderRadius: '12px', paddingLeft: '40px', border: '1px solid #e2e8f0' }} />
                    </div>
                  </div>
@@ -419,7 +420,7 @@ export default function BatchDashboard({ contract, account }) {
                <div className="form-group">
                  <label style={{ fontSize: '13px', color: '#64748b' }}>Ghi chú Cảnh báo (Tuỳ chọn)</label>
                  <div style={{ position: 'relative' }}>
-                   <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }}>⚠️</span>
+                   <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.8, color: '#ef4444' }}><AlertTriangle size={16}/></span>
                    <input value={logisticsForm.anomaly} onChange={e => setLogisticsForm({...logisticsForm, anomaly: e.target.value})} placeholder="Ghi chú khẩn cấp nếu có..." style={{ background: '#f8fafc', color: '#1e293b', borderRadius: '12px', paddingLeft: '40px', border: logisticsForm.anomaly ? '1px solid #ef4444' : '1px solid #e2e8f0' }} />
                  </div>
                </div>
@@ -427,15 +428,15 @@ export default function BatchDashboard({ contract, account }) {
                <div className="form-group">
                  <label style={{ fontSize: '13px', color: '#64748b' }}>Người phụ trách <span className="req">*</span></label>
                  <div style={{ position: 'relative' }}>
-                   <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }}>👤</span>
+                   <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.8, color: '#64748b' }}><User size={16}/></span>
                    <input required value={logisticsForm.operatorName} onChange={e => setLogisticsForm({...logisticsForm, operatorName: e.target.value})} placeholder="Họ và tên nhân viên..." style={{ background: '#f8fafc', color: '#1e293b', borderRadius: '12px', paddingLeft: '40px', border: '1px solid #e2e8f0' }} />
                  </div>
                </div>
 
                <div style={{display:'flex', gap:'12px', marginTop:'16px'}}>
                  <button type="button" className="btn" onClick={() => setLogisticsForm(null)} disabled={loading} style={{flex:1, background:'#f1f5f9', border: '1px solid #e2e8f0', color: '#475569', borderRadius: '12px', padding: '12px', fontSize: '15px', cursor: 'pointer', fontWeight: 600}}>Hủy bỏ</button>
-                 <button type="submit" className="btn" disabled={loading} style={{flex:1, background:'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', color: '#fff', borderRadius: '12px', padding: '12px', fontSize: '15px', fontWeight: 600, boxShadow: '0 8px 16px rgba(16,185,129,0.2)', cursor: loading ? 'not-allowed' : 'pointer'}}>
-                   {loading ? '⏳ Đang lưu...' : 'Lưu Sự Kiện'}
+                 <button type="submit" className="btn" disabled={loading} style={{flex:1, background:'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', color: '#fff', borderRadius: '12px', padding: '12px', fontSize: '15px', fontWeight: 600, boxShadow: '0 8px 16px rgba(16,185,129,0.2)', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'}}>
+                   {loading ? <><Loader2 size={18} className="tsb-spin" /> Đang lưu...</> : 'Lưu Sự Kiện'}
                  </button>
                </div>
                

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { uploadBase64ToPinata } from '../utils/pinata';
+import { Tractor, Camera, Trash2, PlusCircle, Loader2, CheckCircle2, XCircle, User, Phone, MapPin, Leaf, Maximize, FileText } from 'lucide-react';
 
 /* ── Storage helper (Lưu CID của IPFS thay vì base64) ────────
    Key: "agrotrust_crop_images"
@@ -138,7 +139,7 @@ export default function FarmDashboard({ contract, account }) {
 
   return (
     <div className="dash-wrap">
-      <h2 className="dash-title">🏡 Quản Lý Nông Trại</h2>
+      <h2 className="dash-title"><Tractor size={28} style={{ display: 'inline-block', verticalAlign: 'text-bottom', marginRight: '8px' }} /> Quản Lý Nông Trại</h2>
 
       <div className="card-panel glass-card">
         <h3>Đăng ký Nông trại mới</h3>
@@ -185,8 +186,8 @@ export default function FarmDashboard({ contract, account }) {
           {/* ── Mỗi loại nông sản → một ô upload ảnh riêng ── */}
           {parseCropTypes(form.cropType).length > 0 && (
             <div className="crop-image-upload-box">
-              <div className="ciub-label">
-                📷 Ảnh đại diện cho từng loại nông sản
+              <div className="ciub-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Camera size={18} /> Ảnh đại diện cho từng loại nông sản
                 <span className="ciub-hint"> (lưu trên máy, dùng để nhận diện)</span>
               </div>
               <div className="ciub-multi-grid">
@@ -226,7 +227,7 @@ export default function FarmDashboard({ contract, account }) {
                       {/* Nút xoá */}
                       {img && (
                         <button type="button" className="ciub-remove" onClick={() => removeImage(k)}>
-                          🗑
+                          <Trash2 size={16} />
                         </button>
                       )}
                     </div>
@@ -241,8 +242,8 @@ export default function FarmDashboard({ contract, account }) {
             <textarea value={form.description} onChange={set('description')} placeholder="Mô tả ngắn nông trại, tiêu chuẩn đạt được (VietGAP, GlobalGAP, Organic...)" />
           </div>
           {msg && <p className={`form-msg ${msg.startsWith('✅') ? 'success' : msg.startsWith('❌') ? 'error-msg' : ''}`}>{msg}</p>}
-          <button type="submit" className="btn primary-btn" disabled={loading}>
-            {loading ? '⏳ Đang xử lý...' : '🚀 Tạo Nông Trại'}
+          <button type="submit" className="btn primary-btn" disabled={loading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            {loading ? <><Loader2 size={18} className="tsb-spin" /> Đang xử lý...</> : <><PlusCircle size={18} /> Tạo Nông Trại</>}
           </button>
         </form>
       </div>
@@ -272,12 +273,12 @@ export default function FarmDashboard({ contract, account }) {
                   )}
                   <div className="farm-id">#{f.farmId.toString()}</div>
                   <div className="farm-title">{f.farmName}</div>
-                  <span>👤 {f.ownerName} — 📞 {f.phoneNumber}</span>
-                  <span>📍 {f.location}</span>
-                  <span>🌿 {f.cropType} — 📐 {f.area}</span>
-                  {f.description && <span>📋 {f.description}</span>}
-                  <span className={`active-badge ${f.isActive ? '' : 'inactive'}`}>
-                    {f.isActive ? '🟢 Đang hoạt động' : '🔴 Tạm ngưng'}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><User size={14} /> {f.ownerName} — <Phone size={14} /> {f.phoneNumber}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={14} /> {f.location}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {f.cropType} — <Maximize size={14} /> {f.area}</span>
+                  {f.description && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FileText size={14} /> {f.description}</span>}
+                  <span className={`active-badge ${f.isActive ? '' : 'inactive'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    {f.isActive ? <><CheckCircle2 size={14} /> Đang hoạt động</> : <><XCircle size={14} /> Tạm ngưng</>}
                   </span>
                 </div>
               );
