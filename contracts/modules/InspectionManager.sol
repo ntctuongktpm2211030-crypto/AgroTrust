@@ -5,13 +5,13 @@ import "./LogManager.sol";
 
 /**
  * @title InspectionManager
- * @dev Quản lý quy trình kiểm định chất lượng Lô hàng do Kiểm định viên chuyên môn thực hiện.
- * Chỉ tài khoản được Admin duyệt vai trò "Inspector" mới được ghi phiếu kiểm định.
+ * @dev Quản lý quy trình kiểm định chất lượng Lô hàng.
+ * Phiên bản mở quyền: mọi tài khoản đều có thể ghi phiếu kiểm định.
  */
 abstract contract InspectionManager is LogManager {
 
     /**
-     * @dev Ghi phiếu kiểm định lô hàng (Chỉ Kiểm định viên được duyệt mới được gọi)
+     * @dev Ghi phiếu kiểm định lô hàng (Mọi tài khoản đều có thể gọi)
      * @param _batchId           Mã lô hàng cần kiểm định
      * @param _inspectorName     Tên kiểm định viên
      * @param _organization      Đơn vị/Tổ chức kiểm định
@@ -30,7 +30,7 @@ abstract contract InspectionManager is LogManager {
         string memory _note,
         string memory _approvalStatus,
         string memory _inspectionHash
-    ) external onlyInspector {
+    ) external {
         require(_batchId > 0 && _batchId <= batchCount, "AgroTrust: Invalid batch ID");
 
         inspectionCount++;

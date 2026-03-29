@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Contract, JsonRpcProvider } from 'ethers';
+import { Contract, JsonRpcProvider, keccak256, toUtf8Bytes } from 'ethers';
 import { NETWORK_CONFIG, CONTRACT_ABI } from '../config';
 import './TraceabilityLookup.css';
 
@@ -101,18 +101,161 @@ const buildAllContracts = () => {
   return result;
 };
 
-export default function TraceabilityLookup({ contract }) {
+export default function TraceabilityLookup({ contract, forcedPage = null }) {
+  const CUSTOMER_PAGES = {
+    SEARCH: 'search',
+    FARMS: 'farms',
+    BATCHES: 'batches',
+    CROPS: 'crops',
+  };
   const [searchType, setSearchType] = useState('id');
   const [searchValue, setSearchValue] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [result, setResult] = useState(null);
+  const [customerPage, setCustomerPage] = useState(CUSTOMER_PAGES.SEARCH);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [allFarms, setAllFarms] = useState([]);
+  const [allBatches, setAllBatches] = useState([]);
+  const [cropFilter, setCropFilter] = useState('all');
+  const [farmSearch, setFarmSearch] = useState('');
+  const [batchSearch, setBatchSearch] = useState('');
+  const [cropSearch, setCropSearch] = useState('');
+  const [farmFilter, setFarmFilter] = useState('all');
+  const [batchFilter, setBatchFilter] = useState('all');
+  const [copiedText, setCopiedText] = useState('');
+
+  // Auto load batchId from URL
+  const effectivePage = forcedPage || customerPage;
+
+  useEffect(() => {
+    if (!contract || effectivePage !== CUSTOMER_PAGES.SEARCH) return;
+    const bid = new URLSearchParams(window.location.search).get('batchId');
+    if (bid) {
+      setSearchType('id');
+      setSearchValue(bid);
+      lookupById(bid);
+    }
+  }, [contract, effectivePage]);
+
+  useEffect(() => {
+    loadPublicCatalog();
+  }, [contract]);
 
   const fromTs = ts => ts && ts > 0n
     ? new Date(Number(ts) * 1000).toLocaleDateString('vi-VN')
     : '—';
   const tsToDateTime = ts => new Date(Number(ts) * 1000).toLocaleString('vi-VN');
+  const toShortHash = (text) => {
+    if (!text) return '—';
+    const full = keccak256(toUtf8Bytes(text));
+    return `${full.slice(0, 12)}...${full.slice(-8)}`;
+  };
+  const makeQrUrl = (value) =>
+    `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data=${encodeURIComponent(value)}`;
+  const copyToClipboard = async (value, label = 'mã hash') => {
+    if (!value || value === '—') return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedText(`Đã sao chép ${label}`);
+      setTimeout(() => setCopiedText(''), 1800);
+    } catch {
+      setCopiedText('Không thể sao chép');
+      setTimeout(() => setCopiedText(''), 1800);
+    }
+  };
+
+  const loadPublicCatalog = async () => {
+    try {
+      setCatalogLoading(true);
+      const sources = buildAllContracts();
+
+      const farms = [];
+      const batches = [];
+      const farmMap = new Map();
+      const seenFarm = new Set();
+      const seenBatch = new Set();
+
+      await Promise.all(
+        sources.map(async ({ networkName, contract: c }) => {
+          try {
+            const fc = await c.farmCount();
+            for (let i = 1n; i <= fc; i++) {
+              const f = await c.farms(i);
+              if (!f || f.farmId === 0n) continue;
+              const farmId = f.farmId.toString();
+              const farmKey = `${networkName}|${farmId}`;
+              if (seenFarm.has(farmKey)) continue;
+              seenFarm.add(farmKey);
+              const farmHashSource = [
+                networkName,
+                farmId,
+                f.farmName,
+                f.ownerName,
+                f.location,
+                f.cropType
+              ].join('|');
+              const farmHash = keccak256(toUtf8Bytes(farmHashSource));
+              const farmItem = {
+                networkName,
+                farmId,
+                farmName: f.farmName,
+                ownerName: f.ownerName,
+                location: f.location,
+                cropType: f.cropType,
+                hash: farmHash,
+                qrData: `${window.location.origin}?farmId=${farmId}&network=${encodeURIComponent(networkName)}`
+              };
+              farms.push(farmItem);
+              farmMap.set(farmKey, farmItem);
+            }
+          } catch {}
+
+          try {
+            const bc = await c.batchCount();
+            for (let i = 1n; i <= bc; i++) {
+              const b = await c.batches(i);
+              if (!b || b.batchId === 0n) continue;
+              const batchId = b.batchId.toString();
+              const farmId = b.farmId.toString();
+              const batchKey = `${networkName}|${batchId}`;
+              if (seenBatch.has(batchKey)) continue;
+              seenBatch.add(batchKey);
+              const relatedFarm = farmMap.get(`${networkName}|${farmId}`);
+              const batchHashSource = [
+                networkName,
+                batchId,
+                farmId,
+                b.productName,
+                b.plantType,
+                b.dataHash || ''
+              ].join('|');
+              const recordHash = keccak256(toUtf8Bytes(batchHashSource));
+              batches.push({
+                networkName,
+                batchId,
+                farmId,
+                productName: b.productName,
+                plantType: b.plantType,
+                dataHash: b.dataHash || '',
+                recordHash,
+                farmName: relatedFarm?.farmName || `Nông trại #${farmId}`,
+                qrData: `${window.location.origin}?batchId=${batchId}`
+              });
+            }
+          } catch {}
+        })
+      );
+
+      farms.sort((a, b) => Number(b.farmId) - Number(a.farmId));
+      batches.sort((a, b) => Number(b.batchId) - Number(a.batchId));
+      setAllFarms(farms);
+      setAllBatches(batches);
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
 
   // Tra cứu theo ID — dùng tất cả mạng song song
   const lookupById = async (id) => {
@@ -123,10 +266,7 @@ export default function TraceabilityLookup({ contract }) {
     try {
       setLoading(true); setError(''); setResult(null); setSearchResults([]);
       const bid = BigInt(id);
-      const allContracts = buildAllContracts();
-
-      // Thêm contract của mạng hiện tại nếu có
-      const sources = contract ? [{ chainHex: 'current', networkName: 'Mạng hiện tại', contract }, ...allContracts] : allContracts;
+      const sources = buildAllContracts();
       
       const promises = sources.map(async ({ chainHex, networkName, contract: c }) => {
         try {
@@ -157,8 +297,7 @@ export default function TraceabilityLookup({ contract }) {
     try {
       setLoading(true); setError(''); setResult(null); setSearchResults([]);
       const query = searchValue.toLowerCase().trim();
-      const allContracts = buildAllContracts();
-      const sources = contract ? [{ chainHex: 'current', networkName: 'Mạng hiện tại', contract }, ...allContracts] : allContracts;
+      const sources = buildAllContracts();
 
       const allMatches = [];
       await Promise.all(sources.map(async ({ networkName, contract: c }) => {
@@ -185,6 +324,57 @@ export default function TraceabilityLookup({ contract }) {
 
   const handleSearch = () => searchType === 'id' ? lookupById(searchValue) : searchByName();
   const statusInfo = result ? STATUS_LABELS[Number(result.batch.status)] : null;
+  const uniqueCropTypes = Array.from(
+    new Set(
+      allBatches
+        .flatMap(b => (b.plantType || '').split(/[,;/]+/).map(x => x.trim()))
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, 'vi'));
+  const uniqueFarmNetworks = Array.from(new Set(allFarms.map(f => f.networkName))).filter(Boolean);
+  const uniqueBatchNetworks = Array.from(new Set(allBatches.map(b => b.networkName))).filter(Boolean);
+  const filteredCropBatches = cropFilter === 'all'
+    ? allBatches
+    : allBatches.filter(b =>
+        (b.plantType || '')
+          .toLowerCase()
+          .split(/[,;/]+/)
+          .map(x => x.trim())
+          .includes(cropFilter.toLowerCase())
+      );
+  const normalizedFarmSearch = farmSearch.trim().toLowerCase();
+  const normalizedBatchSearch = batchSearch.trim().toLowerCase();
+  const normalizedCropSearch = cropSearch.trim().toLowerCase();
+  const farmsByFilter = farmFilter === 'all'
+    ? allFarms
+    : allFarms.filter(f => f.networkName === farmFilter);
+  const visibleFarms = normalizedFarmSearch
+    ? farmsByFilter.filter(f =>
+        [f.farmId, f.farmName, f.ownerName, f.location, f.cropType, f.networkName]
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedFarmSearch)
+      )
+    : farmsByFilter;
+  const batchesByFilter = batchFilter === 'all'
+    ? allBatches
+    : allBatches.filter(b => b.networkName === batchFilter);
+  const visibleBatches = normalizedBatchSearch
+    ? batchesByFilter.filter(b =>
+        [b.batchId, b.productName, b.farmName, b.plantType, b.networkName]
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedBatchSearch)
+      )
+    : batchesByFilter;
+  const visibleCropBatches = normalizedCropSearch
+    ? filteredCropBatches.filter(b =>
+        [b.batchId, b.productName, b.plantType, b.farmName]
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedCropSearch)
+      )
+    : filteredCropBatches;
 
   return (
     <div className="trace-page-wrap">
@@ -194,9 +384,39 @@ export default function TraceabilityLookup({ contract }) {
         <h1>Hành Trình <em>Nông Sản</em></h1>
         <p>Tra cứu nguồn gốc, lịch sử canh tác và chứng nhận an toàn theo thời gian thực từ Blockchain.</p>
       </div>
+      {copiedText && <div className="trace-copy-toast">{copiedText}</div>}
+
+      {!result && !forcedPage && (
+        <div className="trace-page-switcher">
+          <button
+            className={customerPage === CUSTOMER_PAGES.SEARCH ? 'active' : ''}
+            onClick={() => setCustomerPage(CUSTOMER_PAGES.SEARCH)}
+          >
+            Trang tra cứu
+          </button>
+          <button
+            className={customerPage === CUSTOMER_PAGES.FARMS ? 'active' : ''}
+            onClick={() => setCustomerPage(CUSTOMER_PAGES.FARMS)}
+          >
+            Trang nông trại
+          </button>
+          <button
+            className={customerPage === CUSTOMER_PAGES.BATCHES ? 'active' : ''}
+            onClick={() => setCustomerPage(CUSTOMER_PAGES.BATCHES)}
+          >
+            Trang lô hàng
+          </button>
+          <button
+            className={customerPage === CUSTOMER_PAGES.CROPS ? 'active' : ''}
+            onClick={() => setCustomerPage(CUSTOMER_PAGES.CROPS)}
+          >
+            Trang nông sản
+          </button>
+        </div>
+      )}
 
       {/* ── Search View ── */}
-      {!result && (
+      {!result && effectivePage === CUSTOMER_PAGES.SEARCH && (
         <>
           {/* Toggle */}
           <div className="trace-toggle-row">
@@ -292,7 +512,178 @@ export default function TraceabilityLookup({ contract }) {
               </div>
             </>
           )}
+
         </>
+      )}
+
+      {!result && effectivePage === CUSTOMER_PAGES.FARMS && (
+        <div className="trace-public-wrap">
+          <div className="trace-section-head">
+            <span className="tsh-icon">🏡</span>
+            Danh sách tất cả nông trại
+          </div>
+          <div className="trace-tools-row">
+            <div className="trace-mini-search">
+              <div className="trace-mini-search-inner">
+                <span className="tms-icon">🔎</span>
+                <input
+                  value={farmSearch}
+                  onChange={(e) => setFarmSearch(e.target.value)}
+                  placeholder="Tìm tên, chủ trại, địa chỉ, mã..."
+                />
+                {farmSearch && (
+                  <button className="tms-clear" onClick={() => setFarmSearch('')} aria-label="Xóa tìm kiếm nông trại">✕</button>
+                )}
+              </div>
+            </div>
+            <div className="trace-filter-box">
+              <select value={farmFilter} onChange={(e) => setFarmFilter(e.target.value)}>
+                <option value="all">Tất cả mạng</option>
+                {uniqueFarmNetworks.map(net => <option key={net} value={net}>{net}</option>)}
+              </select>
+            </div>
+          </div>
+          {catalogLoading ? (
+            <div className="trace-empty">Đang tải dữ liệu công khai...</div>
+          ) : visibleFarms.length === 0 ? (
+            <div className="trace-empty">Chưa có dữ liệu nông trại.</div>
+          ) : (
+            <div className="trace-public-grid">
+              {visibleFarms.map((farm, idx) => (
+                <AnimatedCard key={`${farm.networkName}-${farm.farmId}`} className="trace-public-card" delay={idx * 40}>
+                  <div className="tpc-head">
+                    <span className="tpc-title">#{farm.farmId} · {farm.farmName}</span>
+                    <span className="tpc-net">{farm.networkName}</span>
+                  </div>
+                  <div className="tpc-line">🌿 {farm.cropType || 'Chưa khai báo nông sản'}</div>
+                  <div className="tpc-line">📍 {farm.location || 'Chưa có địa chỉ'}</div>
+                  <div className="tpc-hash-row">
+                    <div className="tpc-hash">Hash: {toShortHash(farm.hash)}</div>
+                    <button className="tpc-copy-btn" onClick={() => copyToClipboard(farm.hash, 'hash nông trại')}>Copy</button>
+                  </div>
+                  <div className="tpc-qr">
+                    <img src={makeQrUrl(farm.qrData)} alt={`QR farm ${farm.farmId}`} />
+                  </div>
+                </AnimatedCard>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!result && effectivePage === CUSTOMER_PAGES.BATCHES && (
+        <div className="trace-public-wrap">
+          <div className="trace-section-head">
+            <span className="tsh-icon">📦</span>
+            Tất cả lô hàng
+          </div>
+          <div className="trace-tools-row">
+            <div className="trace-mini-search">
+              <div className="trace-mini-search-inner">
+                <span className="tms-icon">🔎</span>
+                <input
+                  value={batchSearch}
+                  onChange={(e) => setBatchSearch(e.target.value)}
+                  placeholder="Tìm tên lô, nông trại, loại cây, mã..."
+                />
+                {batchSearch && (
+                  <button className="tms-clear" onClick={() => setBatchSearch('')} aria-label="Xóa tìm kiếm lô hàng">✕</button>
+                )}
+              </div>
+            </div>
+            <div className="trace-filter-box">
+              <select value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}>
+                <option value="all">Tất cả mạng</option>
+                {uniqueBatchNetworks.map(net => <option key={net} value={net}>{net}</option>)}
+              </select>
+            </div>
+          </div>
+          {!catalogLoading && visibleBatches.length === 0 ? (
+            <div className="trace-empty">Chưa có dữ liệu lô hàng.</div>
+          ) : (
+            <div className="trace-public-grid">
+              {visibleBatches.map((batch, idx) => (
+                <AnimatedCard key={`${batch.networkName}-${batch.batchId}`} className="trace-public-card" delay={idx * 40}>
+                  <div className="tpc-head">
+                    <span className="tpc-title">Lô #{batch.batchId} · {batch.productName}</span>
+                    <span className="tpc-net">{batch.networkName}</span>
+                  </div>
+                  <div className="tpc-line">🏡 {batch.farmName}</div>
+                  <div className="tpc-line">🌱 {batch.plantType || 'Chưa có phân loại'}</div>
+                  <div className="tpc-hash-row">
+                    <div className="tpc-hash">Hash bản ghi: {toShortHash(batch.recordHash)}</div>
+                    <button className="tpc-copy-btn" onClick={() => copyToClipboard(batch.recordHash, 'hash bản ghi')}>Copy</button>
+                  </div>
+                  <div className="tpc-hash-row">
+                    <div className="tpc-hash">DataHash: {batch.dataHash ? toShortHash(batch.dataHash) : '—'}</div>
+                    <button className="tpc-copy-btn" onClick={() => copyToClipboard(batch.dataHash, 'data hash')}>Copy</button>
+                  </div>
+                  <div className="tpc-qr">
+                    <img src={makeQrUrl(batch.qrData)} alt={`QR batch ${batch.batchId}`} />
+                  </div>
+                </AnimatedCard>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!result && effectivePage === CUSTOMER_PAGES.CROPS && (
+        <div className="trace-public-wrap">
+          <div className="trace-section-head">
+            <span className="tsh-icon">🥬</span>
+            Nông sản phân loại (Dropdown)
+          </div>
+          <div className="trace-tools-row">
+            <div className="trace-mini-search">
+              <div className="trace-mini-search-inner">
+                <span className="tms-icon">🔎</span>
+                <input
+                  value={cropSearch}
+                  onChange={(e) => setCropSearch(e.target.value)}
+                  placeholder="Tìm tên nông sản, loại cây, mã lô..."
+                />
+                {cropSearch && (
+                  <button className="tms-clear" onClick={() => setCropSearch('')} aria-label="Xóa tìm kiếm nông sản">✕</button>
+                )}
+              </div>
+            </div>
+            <div className="trace-filter-box">
+              <select
+                id="cropFilter"
+                value={cropFilter}
+                onChange={(e) => setCropFilter(e.target.value)}
+              >
+                <option value="all">Tất cả nông sản</option>
+                {uniqueCropTypes.map(crop => (
+                  <option key={crop} value={crop}>{crop}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {!catalogLoading && visibleCropBatches.length === 0 ? (
+            <div className="trace-empty">Không có dữ liệu cho loại nông sản đã chọn.</div>
+          ) : (
+            <div className="trace-public-grid">
+              {visibleCropBatches.map((batch, idx) => (
+                <AnimatedCard key={`crop-${batch.networkName}-${batch.batchId}`} className="trace-public-card" delay={idx * 40}>
+                  <div className="tpc-head">
+                    <span className="tpc-title">{batch.productName}</span>
+                    <span className="tpc-net">Lô #{batch.batchId}</span>
+                  </div>
+                  <div className="tpc-line">🌱 {batch.plantType || 'Chưa có phân loại'}</div>
+                  <div className="tpc-hash-row">
+                    <div className="tpc-hash">Hash: {toShortHash(batch.recordHash)}</div>
+                    <button className="tpc-copy-btn" onClick={() => copyToClipboard(batch.recordHash, 'hash nông sản')}>Copy</button>
+                  </div>
+                  <div className="tpc-qr">
+                    <img src={makeQrUrl(batch.qrData)} alt={`QR crop batch ${batch.batchId}`} />
+                  </div>
+                </AnimatedCard>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ── Detailed Result View ── */}

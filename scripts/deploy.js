@@ -30,6 +30,14 @@ async function main() {
   if (network === "hoodi") {
     rpcUrl = process.env.HOODI_RPC_URL || "https://rpc.hoodi.ethpandaops.io";
     console.log("📍 Mạng mục tiêu: Ethereum Hoodi");
+  } else if (network === "celo") {
+    rpcUrl = process.env.CELO_RPC_URL || "https://alfajores-forno.celo-testnet.org";
+    console.log("📍 Mạng mục tiêu: Celo Alfajores");
+  } else if (network === "unichain") {
+    rpcUrl = process.env.UNICHAIN_RPC_URL || "https://sepolia.unichain.org";
+    console.log("📍 Mạng mục tiêu: Unichain Sepolia");
+  } else {
+    console.log("📍 Mạng mục tiêu: Sepolia");
   }
 
   const provider = new ethers.JsonRpcProvider(rpcUrl);

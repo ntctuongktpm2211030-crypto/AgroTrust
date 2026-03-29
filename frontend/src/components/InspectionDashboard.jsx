@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
+import { uploadBase64ToPinata } from '../utils/pinata';
+
+const OPEN_INSPECTION_FOR_ALL = true;
 
 export default function InspectionDashboard({ contract, account }) {
   const [isInspector, setIsInspector] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [adminMsg, setAdminMsg] = useState('');
   const [grantingRole, setGrantingRole] = useState(false);
   const [inspectorAddress, setInspectorAddress] = useState('');
   const [inspections, setInspections] = useState([]);
   const [batches, setBatches] = useState([]); // [{ id, productName }]
+  const [batchesLoading, setBatchesLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   const [selectedBatch, setSelectedBatch] = useState('');
@@ -18,24 +23,56 @@ export default function InspectionDashboard({ contract, account }) {
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  useEffect(() => { loadAllBatches(); checkInspectorRole(); }, [account]);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+
+  useEffect(() => {
+    checkInspectorRole();
+    checkAdminRole();
+  }, [account, contract]);
+
+  const checkAdminRole = async () => {
+    try {
+      const adminAddr = await contract.admin();
+      setIsAdmin(adminAddr?.toLowerCase() === account?.toLowerCase());
+    } catch (e) {
+      console.error(e);
+      setIsAdmin(false);
+    }
+  };
 
   const checkInspectorRole = async () => {
+    if (OPEN_INSPECTION_FOR_ALL) {
+      setIsInspector(true);
+      loadAllBatches();
+      return;
+    }
     try {
       const result = await contract.inspectors(account);
       setIsInspector(result);
+      if (result) loadAllBatches();
+      else setBatches([]);
     } catch (e) { console.error(e); }
   };
 
   const grantInspector = async () => {
+    if (OPEN_INSPECTION_FOR_ALL) {
+      setAdminMsg('✅ Chế độ mở: mọi tài khoản đều có quyền kiểm định trên giao diện.');
+      return;
+    }
+    if (!isAdmin) {
+      setAdminMsg('⚠️ Chỉ tài khoản Admin mới có thể cấp quyền Inspector.');
+      return;
+    }
     const addr = inspectorAddress.trim() || account;
     try {
       setGrantingRole(true);
-      setAdminMsg('⏳ Đang cấp quyền...');
+      setAdminMsg('⏳ Đang gửi giao dịch cấp quyền...');
       const tx = await contract.addInspector(addr);
+      setAdminMsg(`⛓ Giao dịch đã gửi: ${tx.hash.slice(0, 10)}... Đang chờ xác nhận...`);
       await tx.wait();
+      setIsInspector(true);
+      await loadAllBatches();
       setAdminMsg('✅ Đã cấp quyền Kiểm định viên thành công!');
-      checkInspectorRole();
     } catch (err) {
       setAdminMsg('❌ Lỗi: ' + (err.reason || err.message));
     } finally { setGrantingRole(false); }
@@ -43,14 +80,17 @@ export default function InspectionDashboard({ contract, account }) {
 
   const loadAllBatches = async () => {
     try {
+      setBatchesLoading(true);
       const bc = await contract.batchCount();
-      const loadedBatches = [];
-      for (let i = 1n; i <= bc; i++) {
-        const b = await contract.batches(i);
-        loadedBatches.push({ id: i.toString(), productName: b.productName });
-      }
+      const ids = Array.from({ length: Number(bc) }, (_, idx) => BigInt(idx + 1));
+      const rawBatches = await Promise.all(ids.map(id => contract.batches(id)));
+      const loadedBatches = rawBatches.map((b, idx) => ({
+        id: String(idx + 1),
+        productName: b.productName
+      }));
       setBatches(loadedBatches);
     } catch (e) { console.error(e); }
+    finally { setBatchesLoading(false); }
   };
 
   const loadInspections = async (bId) => {
@@ -67,6 +107,30 @@ export default function InspectionDashboard({ contract, account }) {
     loadInspections(v);
   };
 
+  const handlePdfUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      setUploadingPdf(true);
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        try {
+          const base64Data = reader.result;
+          setMsg('⏳ Đang upload file PDF/Ảnh lên mạng lưới IPFS...');
+          const cid = await uploadBase64ToPinata(base64Data, file.name);
+          setForm(f => ({ ...f, inspectionHash: cid }));
+          setMsg('✅ Tải lên IPFS thành công! Mã Hash đã tự động điền.');
+        } catch (err) {
+          setMsg('❌ Lỗi tải lên: ' + err.message);
+        } finally { setUploadingPdf(false); }
+      };
+    } catch (err) {
+      setMsg('❌ Lỗi đọc file.');
+      setUploadingPdf(false);
+    }
+  };
+
   const handleSubmit = async e => {
     e.preventDefault();
     if (!form.batchId || !form.inspectorName || !form.inspectionContent) {
@@ -76,6 +140,20 @@ export default function InspectionDashboard({ contract, account }) {
     }
     try {
       setLoading(true);
+      // Dù UI cho phép tất cả tài khoản, giao dịch on-chain vẫn cần quyền inspector.
+      const hasOnChainInspectorRole = await contract.inspectors(account);
+      if (!hasOnChainInspectorRole) {
+        if (isAdmin) {
+          setMsg('⏳ Bạn là Admin: đang tự cấp quyền Inspector cho ví hiện tại...');
+          const grantTx = await contract.addInspector(account);
+          await grantTx.wait();
+          setMsg('✅ Đã cấp quyền Inspector. Đang tiếp tục ghi phiếu kiểm định...');
+        } else {
+          setMsg('❌ Ví này chưa có quyền Inspector trên blockchain, nên không thể post. Hãy nhờ Admin cấp quyền cho ví của bạn.');
+          setTimeout(() => setMsg(''), 7000);
+          return;
+        }
+      }
       setMsg('⏳ Đang đồng bộ phiếu kiểm định lên Blockchain...');
       const tx = await contract.inspectBatch(
         BigInt(form.batchId), form.inspectorName, form.organization,
@@ -88,7 +166,12 @@ export default function InspectionDashboard({ contract, account }) {
       setForm(f => ({ ...f, inspectorName:'', organization:'', inspectionContent:'', note:'', inspectionHash:'' }));
       loadInspections(form.batchId);
     } catch (err) {
-      setMsg('❌ Lỗi giao dịch: ' + (err.reason || err.message));
+      const raw = (err?.reason || err?.message || '').toString();
+      if (raw.toLowerCase().includes('caller is not the admin') || raw.toLowerCase().includes('inspector')) {
+        setMsg('❌ Không thể post vì ví hiện tại chưa có quyền Inspector trên blockchain.');
+      } else {
+        setMsg('❌ Lỗi giao dịch: ' + raw);
+      }
       setTimeout(() => setMsg(''), 5000);
     } finally { setLoading(false); }
   };
@@ -141,29 +224,47 @@ export default function InspectionDashboard({ contract, account }) {
         {!isInspector && (
           <>
             <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', marginBottom: '16px', lineHeight: '1.6' }}>
-              Ví của bạn chưa được cấp quyền <b style={{ color: '#fbbf24' }}>Inspector</b>. Nếu bạn là người deploy hợp đồng (Admin), hãy tự cấp quyền cho mình bên dưới.
+              Ví của bạn chưa được cấp quyền <b style={{ color: '#fbbf24' }}>Inspector</b>.
+              {isAdmin
+                ? ' Bạn là Admin, có thể cấp quyền bên dưới.'
+                : ' Tài khoản hiện tại không phải Admin nên không thể cấp quyền Inspector.'}
             </p>
-            <div className="form-row" style={{ maxWidth: '640px' }}>
-              <div className="form-group">
-                <label>Địa chỉ ví (bỏ trống = dùng ví hiện tại)</label>
-                <input
-                  className="custom-form"
-                  style={{ background: 'var(--input-bg)', border: '1px solid rgba(255,255,255,.09)', padding: '11px 14px', borderRadius: 'var(--r-sm)', color: 'var(--text-primary)', font: '14px Inter,sans-serif', outline: 'none', width: '100%' }}
-                  value={inspectorAddress}
-                  onChange={e => setInspectorAddress(e.target.value)}
-                  placeholder={account}
-                />
+            {isAdmin && (
+              <div className="form-row" style={{ maxWidth: '640px' }}>
+                <div className="form-group">
+                  <label>Địa chỉ ví (bỏ trống = dùng ví hiện tại)</label>
+                  <input
+                    className="custom-form"
+                    style={{ background: 'var(--input-bg)', border: '1px solid rgba(255,255,255,.09)', padding: '11px 14px', borderRadius: 'var(--r-sm)', color: 'var(--text-primary)', font: '14px Inter,sans-serif', outline: 'none', width: '100%' }}
+                    value={inspectorAddress}
+                    onChange={e => setInspectorAddress(e.target.value)}
+                    placeholder={account}
+                  />
+                </div>
+                <div className="form-group" style={{ justifyContent: 'flex-end' }}>
+                  <button
+                    className="btn amber-btn"
+                    onClick={grantInspector}
+                    disabled={grantingRole}
+                  >
+                    {grantingRole ? '⏳ Đang cấp...' : '🔑 Cấp Quyền Inspector'}
+                  </button>
+                </div>
               </div>
-              <div className="form-group" style={{ justifyContent: 'flex-end' }}>
-                <button
-                  className="btn amber-btn"
-                  onClick={grantInspector}
-                  disabled={grantingRole}
-                >
-                  {grantingRole ? '⏳ Đang cấp...' : '🔑 Cấp Quyền Inspector'}
-                </button>
+            )}
+            {!isAdmin && (
+              <div style={{
+                background: 'rgba(248,113,113,0.08)',
+                border: '1px solid rgba(248,113,113,0.25)',
+                color: '#b91c1c',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                fontSize: '13px',
+                fontWeight: 700
+              }}>
+                Tài khoản hiện tại: {account?.substring(0, 6)}...{account?.substring(account.length - 4)} không có quyền Admin.
               </div>
-            </div>
+            )}
             {adminMsg && (
               <p className={`form-msg ${adminMsg.startsWith('✅') ? 'success' : adminMsg.startsWith('❌') ? 'error-msg' : ''}`}
                 style={{ marginTop: '12px' }}>
@@ -190,7 +291,7 @@ export default function InspectionDashboard({ contract, account }) {
             <div className="form-group">
               <label>Lô hàng kiểm định <span className="req">*</span></label>
               <select value={form.batchId} onChange={e => handleBatchSelect(e.target.value)}>
-                <option value="">-- Chọn lô hàng cần kiểm định --</option>
+                <option value="">{batchesLoading ? '-- Đang tải danh sách lô --' : '-- Chọn lô hàng cần kiểm định --'}</option>
                 {batches.map(b => (
                   <option key={b.id} value={b.id}>Lô #{b.id} — {b.productName}</option>
                 ))}
@@ -234,7 +335,13 @@ export default function InspectionDashboard({ contract, account }) {
             </div>
             <div className="form-group">
               <label>Hash tài liệu (IPFS/PDF)</label>
-              <input value={form.inspectionHash} onChange={set('inspectionHash')} placeholder="QmXoypiz... (tùy chọn)" />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input style={{ flex: 1 }} value={form.inspectionHash} onChange={set('inspectionHash')} placeholder="QmXoypiz... (tùy chọn)" />
+                <label className="btn-outline" style={{ cursor: 'pointer', padding: '10px', fontSize: '13px', minWidth: '135px', textAlign: 'center', background: 'rgba(255,255,255,0.05)' }}>
+                  {uploadingPdf ? '⏳ Đang tải...' : '📎 Upload PDF/Ảnh'}
+                  <input type="file" accept="application/pdf,image/*" style={{ display: 'none' }} onChange={handlePdfUpload} disabled={uploadingPdf} />
+                </label>
+              </div>
             </div>
           </div>
 

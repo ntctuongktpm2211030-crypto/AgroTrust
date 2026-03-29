@@ -2,11 +2,11 @@
 export const NETWORK_CONFIG = {
   "0x88bb0": { // 560048 (Ethereum Hoodi Testnet)
     name: "Ethereum Hoodi Testnet",
-    address: "0x13E09428920C8c6F8A2cCbc24794BD4cD4A8C4eA",
+    address: "0xea69deE3F9DD91BCf817f99C76E79849069cd04d",
   },
   "0xaa36a7": { // 11155111 (Sepolia Testnet)
     name: "Sepolia Testnet",
-    address: "0xEDA6667eC1D9CEE85183487dce538F5c45FA96F2", // Điền địa chỉ sau khi deploy
+    address: "0x9138745c8C83bb0026B8EA26F3Ed330e3c2023e4", // Điền địa chỉ sau khi deploy
   },
   "0xaef3": { // 44787 (Celo Alfajores Testnet)
     name: "Celo Alfajores Testnet",

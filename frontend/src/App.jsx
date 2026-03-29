@@ -41,6 +41,24 @@ const TABS = [
     tag: 'Blockchain'
   },
   {
+    key: 'customerFarms', icon: '🏡', label: 'DS Nông Trại', desc: 'Danh sách công khai các nông trại',
+    color: '#16a34a', glow: 'rgba(22,163,74,.35)',
+    grad: 'linear-gradient(135deg,#dcfce7,#f0fdf4)',
+    tag: 'Công khai'
+  },
+  {
+    key: 'customerBatches', icon: '📦', label: 'DS Lô Hàng', desc: 'Danh sách công khai các lô hàng',
+    color: '#ca8a04', glow: 'rgba(202,138,4,.35)',
+    grad: 'linear-gradient(135deg,#fef9c3,#fffbeb)',
+    tag: 'Công khai'
+  },
+  {
+    key: 'customerCrops', icon: '🥬', label: 'DS Nông Sản', desc: 'Phân loại nông sản công khai',
+    color: '#0d9488', glow: 'rgba(13,148,136,.35)',
+    grad: 'linear-gradient(135deg,#ccfbf1,#f0fdfa)',
+    tag: 'Phân loại'
+  },
+  {
     key: 'analytics', icon: '📊', label: 'Thống Kê Logistics', desc: 'Dashboard phân tích và cảnh báo chuỗi sự kiện',
     color: '#f43f5e', glow: 'rgba(244,63,94,.35)',
     grad: 'linear-gradient(135deg,#ffe4e6,#fff1f2)',
@@ -163,7 +181,7 @@ function App() {
   const filteredTabs = TABS.filter(t => {
     if (!userRole) return false;
     if (userRole === 'owner') return ['farm', 'batch', 'log', 'inspection', 'analytics'].includes(t.key);
-    if (userRole === 'customer') return t.key === 'trace';
+    if (userRole === 'customer') return ['trace', 'customerFarms', 'customerBatches', 'customerCrops'].includes(t.key);
     return false;
   });
 
@@ -174,7 +192,10 @@ function App() {
       case 'batch': return <BatchDashboard contract={contract} account={account} />;
       case 'log': return <LogDashboard contract={contract} account={account} />;
       case 'inspection': return <InspectionDashboard contract={contract} account={account} />;
-      case 'trace': return <TraceabilityLookup contract={contract} />;
+      case 'trace': return <TraceabilityLookup contract={contract} forcedPage="search" />;
+      case 'customerFarms': return <TraceabilityLookup contract={contract} forcedPage="farms" />;
+      case 'customerBatches': return <TraceabilityLookup contract={contract} forcedPage="batches" />;
+      case 'customerCrops': return <TraceabilityLookup contract={contract} forcedPage="crops" />;
       case 'analytics': return <AnalyticsDashboard contract={contract} account={account} />;
       default: return null;
     }
@@ -429,21 +450,39 @@ function App() {
       )}
 
       {/* TOAST NOTIFICATIONS */}
-      <div className="toast-container" style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div className="toast-container" style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 99999, display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-end', pointerEvents: 'none' }}>
         {toasts.map(t => (
-          <div key={t.id} className="toast fade-in" style={{
-            background: t.type === 'error' ? 'rgba(239,68,68,0.9)' : 'rgba(16,185,129,0.9)',
-            color: '#fff',
-            padding: '12px 20px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.2)',
+          <div key={t.id} style={{
+            display: 'flex', alignItems: 'center', gap: '12px',
+            background: t.type === 'error' ? 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.05))' : 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.05))',
+            color: t.type === 'error' ? '#fca5a5' : '#a7f3d0',
+            padding: '14px 20px',
+            borderRadius: '16px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: `1px solid ${t.type === 'error' ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
             fontSize: '14px',
             fontWeight: 500,
-            animation: 'slideUp 0.3s ease-out forwards'
+            animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            pointerEvents: 'auto',
+            minWidth: '280px',
+            maxWidth: '380px'
           }}>
-            {t.msg}
+            <div style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: t.type === 'error' ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              fontSize: '16px'
+            }}>
+              {t.type === 'error' ? '🚨' : '✨'}
+            </div>
+            <div style={{ lineHeight: '1.5', flex: 1, wordBreak: 'break-word', color: '#fff' }}>
+              {t.msg}
+            </div>
+            <button onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '-4px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
           </div>
         ))}
       </div>

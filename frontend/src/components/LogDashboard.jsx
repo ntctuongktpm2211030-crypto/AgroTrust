@@ -63,16 +63,27 @@ export default function LogDashboard({ contract, account }) {
       loadLogs(v);
       try {
         const batch = await contract.batches(v);
-        const pt = batch.plantType?.trim() || '';
-        if (pt) {
-          const images = getCropImages();
-          const imgUrl = images[pt.toLowerCase()];
-          if (imgUrl) {
-            setCropPreview({ image: imgUrl, cropType: pt });
-          } else {
-            setCropPreview({ image: null, cropType: pt });
-          }
-        }
+        const images = getCropImages();
+
+        let farmCropType = '';
+        try {
+          const farm = await contract.farms(batch.farmId);
+          farmCropType = farm.cropType?.trim() || '';
+        } catch {}
+
+        const onChainCid = batch.dataHash || null;
+        const localCid = farmCropType
+          ? images[farmCropType.toLowerCase()] || null
+          : null;
+        const cid = onChainCid || localCid;
+        const imgSrc = cid ? (cid.startsWith('data:') ? cid : getIpfsUrl(cid)) : null;
+
+        const displayCrop =
+          batch.plantType?.trim() ||
+          farmCropType ||
+          `Lô #${batch.batchId?.toString?.() || v}`;
+
+        setCropPreview({ image: imgSrc, cropType: displayCrop });
       } catch (e) {
         console.error("Lỗi khi tải thông tin batch", e);
       }
@@ -143,7 +154,7 @@ export default function LogDashboard({ contract, account }) {
             <div className="batch-crop-preview" style={{ marginBottom: '16px' }}>
               {cropPreview.image ? (
                 <>
-                  <img src={getIpfsUrl(cropPreview.image) || cropPreview.image} alt={cropPreview.cropType} className="bcp-img" />
+                  <img src={cropPreview.image} alt={cropPreview.cropType} className="bcp-img" />
                   <div className="bcp-info">
                     <div className="bcp-label">Đang ghi nhật ký cho</div>
                     <div className="bcp-name">{cropPreview.cropType}</div>
