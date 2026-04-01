@@ -7,7 +7,9 @@ import LogDashboard from "./components/LogDashboard.jsx";
 import InspectionDashboard from "./components/InspectionDashboard.jsx";
 import TraceabilityLookup from "./components/TraceabilityLookup.jsx";
 import AnalyticsDashboard from "./components/AnalyticsDashboard.jsx";
-import { Tractor, Wheat, FileText, ShieldCheck, Search, Building2, Package, Sprout, TrendingUp } from 'lucide-react';
+import UserActivityDashboard from "./components/UserActivityDashboard.jsx";
+import { addUserActivity } from "./utils/userActivity.js";
+import { Tractor, Wheat, FileText, ShieldCheck, Search, Building2, Package, Sprout, TrendingUp, History } from 'lucide-react';
 import './index.css';
 
 const ColorfulBatchIcon = () => (
@@ -82,6 +84,12 @@ const TABS = [
     grad: 'linear-gradient(135deg,#ffe4e6,#fff1f2)',
     tag: 'Phân tích'
   },
+  {
+    key: 'activity', icon: <History size={32} color="#0f766e" strokeWidth={2.2} />, label: 'Lịch Sử Thao Tác', desc: 'Xem lại lịch sử hành động trên ứng dụng',
+    color: '#0f766e', glow: 'rgba(15,118,110,.35)',
+    grad: 'linear-gradient(135deg,#d1fae5,#ecfdf5)',
+    tag: 'Theo dõi'
+  },
 ];
 
 function App() {
@@ -93,6 +101,15 @@ function App() {
   const [userRole, setUserRole] = useState(null); // 'owner' or 'customer'
   const [currentNetworkName, setCurrentNetworkName] = useState("");
   const [toasts, setToasts] = useState([]);
+  const logUserActivity = ({ type, title, detail }) => {
+    addUserActivity({
+      type,
+      title,
+      detail,
+      account,
+      role: userRole || "",
+    });
+  };
 
   useEffect(() => {
     // Tắt tính năng tự động ghi nhớ đăng nhập theo yêu cầu của user
@@ -177,6 +194,13 @@ function App() {
         setContract(contractInstance);
         localStorage.setItem('walletConnected', 'true');
         setErrorMsg("");
+        addUserActivity({
+          type: "wallet",
+          title: "Kết nối ví thành công",
+          detail: `Đăng nhập mạng ${networkData.name}`,
+          account: currentAccount,
+          role: userRole || "",
+        });
       } else {
         setContract(null);
         setErrorMsg(`Chưa gắn Hợp Đồng (Contract) lên mạng ${networkData.name}. Giờ hãy chuyển lại Hoodi nhé!`);
@@ -189,6 +213,11 @@ function App() {
   };
 
   const disconnectWallet = () => {
+    logUserActivity({
+      type: "wallet",
+      title: "Ngắt kết nối ví",
+      detail: "Người dùng đã ngắt kết nối khỏi ứng dụng",
+    });
     setAccount(null);
     setContract(null);
     setActiveTab(null);
@@ -198,23 +227,24 @@ function App() {
 
   const filteredTabs = TABS.filter(t => {
     if (!userRole) return false;
-    if (userRole === 'owner') return ['farm', 'batch', 'log', 'inspection', 'analytics'].includes(t.key);
-    if (userRole === 'customer') return ['trace', 'customerFarms', 'customerBatches', 'customerCrops'].includes(t.key);
+    if (userRole === 'owner') return ['farm', 'batch', 'log', 'inspection', 'analytics', 'activity'].includes(t.key);
+    if (userRole === 'customer') return ['trace', 'customerFarms', 'customerBatches', 'customerCrops', 'activity'].includes(t.key);
     return false;
   });
 
   const renderTabContent = () => {
     if (!contract || !account) return null;
     switch (activeTab) {
-      case 'farm': return <FarmDashboard contract={contract} account={account} />;
-      case 'batch': return <BatchDashboard contract={contract} account={account} />;
-      case 'log': return <LogDashboard contract={contract} account={account} />;
-      case 'inspection': return <InspectionDashboard contract={contract} account={account} />;
+      case 'farm': return <FarmDashboard contract={contract} account={account} onUserAction={logUserActivity} />;
+      case 'batch': return <BatchDashboard contract={contract} account={account} onUserAction={logUserActivity} />;
+      case 'log': return <LogDashboard contract={contract} account={account} onUserAction={logUserActivity} />;
+      case 'inspection': return <InspectionDashboard contract={contract} account={account} onUserAction={logUserActivity} />;
       case 'trace': return <TraceabilityLookup contract={contract} forcedPage="search" />;
       case 'customerFarms': return <TraceabilityLookup contract={contract} forcedPage="farms" />;
       case 'customerBatches': return <TraceabilityLookup contract={contract} forcedPage="batches" />;
       case 'customerCrops': return <TraceabilityLookup contract={contract} forcedPage="crops" />;
       case 'analytics': return <AnalyticsDashboard contract={contract} account={account} />;
+      case 'activity': return <UserActivityDashboard />;
       default: return null;
     }
   };
@@ -287,7 +317,17 @@ function App() {
             <div
               className="role-card-premium"
               style={{ '--role-color': '#16a34a', '--role-glow': 'rgba(22,163,74,0.3)', '--role-grad': 'linear-gradient(135deg, rgba(22,163,74,0.15), transparent)' }}
-              onClick={() => { setUserRole('owner'); setActiveTab(null); }}
+              onClick={() => {
+                setUserRole('owner');
+                setActiveTab(null);
+                addUserActivity({
+                  type: "role",
+                  title: "Chọn vai trò Chủ nông trại",
+                  detail: "Mở nhóm chức năng quản trị trang trại",
+                  account,
+                  role: "owner",
+                });
+              }}
             >
               <div className="role-icon-wrap">🏡</div>
               <h3>Chủ Nông Trại</h3>
@@ -298,7 +338,17 @@ function App() {
             <div
               className="role-card-premium"
               style={{ '--role-color': '#0284c7', '--role-glow': 'rgba(2,132,199,0.3)', '--role-grad': 'linear-gradient(135deg, rgba(2,132,199,0.15), transparent)' }}
-              onClick={() => { setUserRole('customer'); setActiveTab('trace'); }}
+              onClick={() => {
+                setUserRole('customer');
+                setActiveTab('trace');
+                addUserActivity({
+                  type: "role",
+                  title: "Chọn vai trò Khách hàng",
+                  detail: "Mở nhóm chức năng tra cứu",
+                  account,
+                  role: "customer",
+                });
+              }}
             >
               <div className="role-icon-wrap">🛒</div>
               <h3>Khách Hàng</h3>
@@ -346,7 +396,17 @@ function App() {
                 <button
                   key={t.key}
                   className={`tab-btn ${activeTab === t.key ? 'active' : ''}`}
-                  onClick={() => setActiveTab(activeTab === t.key ? null : t.key)}
+                  onClick={() => {
+                    const nextTab = activeTab === t.key ? null : t.key;
+                    setActiveTab(nextTab);
+                    if (nextTab) {
+                      logUserActivity({
+                        type: "navigation",
+                        title: `Mở chức năng ${t.label}`,
+                        detail: t.desc,
+                      });
+                    }
+                  }}
                   title={t.desc}
                   style={activeTab === t.key ? {
                     background: t.grad,

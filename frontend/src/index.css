@@ -915,6 +915,18 @@ body {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   margin-top: 4px;
+  align-items: stretch;
+}
+
+.batch-cards-grid .farm-item {
+  height: 100%;
+  min-height: 420px;
+}
+
+.batch-cards-grid .batch-card-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .batch-cards-grid .farm-item:hover {
@@ -986,6 +998,7 @@ body {
   .feature-grid { grid-template-columns: 1fr; }
   .trace-grid { grid-template-columns: 1fr; }
   .batch-cards-grid { grid-template-columns: 1fr; }
+  .batch-cards-grid .farm-item { min-height: unset; }
   .batch-list-toolbar { width: 100%; justify-content: flex-end; }
   .welcome-panel { padding: 32px 20px; }
   .hero-feature-card { width: 100%; max-width: none; }

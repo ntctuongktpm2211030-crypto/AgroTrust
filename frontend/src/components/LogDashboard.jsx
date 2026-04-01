@@ -11,7 +11,7 @@ const getCropImages = () => {
   catch { return {}; }
 };
 
-export default function LogDashboard({ contract, account }) {
+export default function LogDashboard({ contract, account, onUserAction }) {
   const [logs, setLogs] = useState([]);
   const [batches, setBatches] = useState([]); // [{ id, productName }]
   const [loading, setLoading] = useState(false);
@@ -114,6 +114,11 @@ export default function LogDashboard({ contract, account }) {
       );
       await tx.wait();
       setMsg('🎉 Hoàn tất: Nhật ký canh tác đã được ghi nhận an toàn!');
+      onUserAction?.({
+        type: 'cultivation-log',
+        title: 'Ghi nhật ký canh tác',
+        detail: `Lô #${form.batchId} - hoạt động "${form.actionType}"`,
+      });
       setTimeout(() => setMsg(''), 5000);
       loadLogs(form.batchId);
       setForm(f => ({ ...f, actionType:'Gieo hạt', description:'', materialName:'', dosage:'', operatorName:'', weatherCondition:'', iotData:'', note:'' }));

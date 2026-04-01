@@ -22,7 +22,7 @@ const saveCropImageCID = (cropType, cid) => {
 const parseCropTypes = (str) =>
   str.split(/[,;/]+/).map(s => s.trim()).filter(Boolean);
 
-export default function FarmDashboard({ contract, account }) {
+export default function FarmDashboard({ contract, account, onUserAction }) {
   const [farms, setFarms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
@@ -122,6 +122,11 @@ export default function FarmDashboard({ contract, account }) {
       }
 
       setMsg('🎉 Hoàn tất: Nông trại đã được khởi tạo và xác thực trên chuỗi!');
+      onUserAction?.({
+        type: 'farm',
+        title: 'Tạo nông trại mới',
+        detail: `Nông trại "${form.farmName}" đã được ghi nhận trên blockchain`,
+      });
       setTimeout(() => setMsg(''), 5000);
       setForm({ farmName:'', location:'', cropType:'', area:'' }); // Resetting only the fields used in the new addFarm call
       setCropPicMap({}); // Clear all crop images

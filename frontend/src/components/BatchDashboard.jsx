@@ -11,7 +11,7 @@ const getCropImages = () => {
   catch { return {}; }
 };
 
-export default function BatchDashboard({ contract, account }) {
+export default function BatchDashboard({ contract, account, onUserAction }) {
   const [batches, setBatches] = useState([]);
   // farmList lưu đủ thông tin farm (id + cropType) để chọn ảnh
   const [farmList, setFarmList] = useState([]);   // [{ id, name, cropType }]
@@ -96,6 +96,15 @@ export default function BatchDashboard({ contract, account }) {
       setTimeout(() => setMsg(''), 5000);
       return;
     }
+    if (form.expectedHarvestDate && form.sowingDate) {
+      const sow = new Date(form.sowingDate);
+      const har = new Date(form.expectedHarvestDate);
+      if (!Number.isNaN(sow.getTime()) && !Number.isNaN(har.getTime()) && har < sow) {
+        setMsg('⚠️ Ngày thu hoạch dự kiến không được xảy ra trước ngày gieo trồng.');
+        setTimeout(() => setMsg(''), 5000);
+        return;
+      }
+    }
     try {
       setLoading(true);
       setMsg('⏳ Đang đồng bộ dữ liệu lô hàng lên hệ thống Blockchain...');
@@ -112,6 +121,11 @@ export default function BatchDashboard({ contract, account }) {
       );
       await tx.wait();
       setMsg('🎉 Hoàn tất: Lô hàng mới đã được khởi tạo thành công!');
+      onUserAction?.({
+        type: 'batch',
+        title: 'Tạo lô hàng mới',
+        detail: `Lô "${form.productName}" thuộc nông trại #${form.farmId} đã được tạo`,
+      });
       setTimeout(() => setMsg(''), 5000);
       setForm({ farmId:'', productName:'', plantType:'', cultivationArea:'', sowingDate:'', expectedHarvestDate:'', expectedQuantity:'', quantityUnit:'kg', dataHash:'' });
       setCropPreview(null);
@@ -146,6 +160,11 @@ export default function BatchDashboard({ contract, account }) {
       );
       await tx.wait();
       setMsg('🎉 Cập nhật chuỗi Logistics thành công!');
+      onUserAction?.({
+        type: 'logistics',
+        title: 'Cập nhật logistics lô hàng',
+        detail: `Lô #${logisticsForm.batchId} - sự kiện "${logisticsForm.eventType}"`,
+      });
       setTimeout(() => setMsg(''), 5000);
       setLogisticsForm(null);
       loadData();
@@ -254,7 +273,12 @@ export default function BatchDashboard({ contract, account }) {
             </div>
             <div className="form-group">
               <label>Ngày thu hoạch dự kiến</label>
-              <input type="date" value={form.expectedHarvestDate} onChange={set('expectedHarvestDate')} />
+              <input
+                type="date"
+                min={form.sowingDate || undefined}
+                value={form.expectedHarvestDate}
+                onChange={set('expectedHarvestDate')}
+              />
             </div>
           </div>
           <div className="form-row">
@@ -265,7 +289,7 @@ export default function BatchDashboard({ contract, account }) {
             <div className="form-group">
               <label>Đơn vị tính</label>
               <select value={form.quantityUnit} onChange={set('quantityUnit')}>
-                {['kg','tấn','thùng','giỏ','bao'].map(u => <option key={u}>{u}</option>)}
+                {['kg','tấn','thùng','giỏ','bao','lít'].map(u => <option key={u}>{u}</option>)}
               </select>
             </div>
           </div>
@@ -336,22 +360,24 @@ export default function BatchDashboard({ contract, account }) {
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Package size={14}/> Dự kiến: {b.expectedQuantity.toString()} {b.quantityUnit}</span>
                   <span className="active-badge">{STATUS_LABELS[Number(b.status)]}</span>
                   
-                  {/* QR Code Section - Redesigned */}
-                  <div style={{ marginTop: '16px', display: 'flex', gap: '16px', alignItems: 'center', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ background: '#fff', padding: '6px', borderRadius: '8px', display: 'flex', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                       <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin + '?batchId=' + b.batchId.toString())}&margin=0`} alt="QR Code" style={{ width: '80px', height: '80px', borderRadius: '4px' }} />
+                  <div className="batch-card-bottom">
+                    {/* QR Code Section - Redesigned */}
+                    <div style={{ marginTop: '16px', display: 'flex', gap: '16px', alignItems: 'center', padding: '12px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ background: '#fff', padding: '6px', borderRadius: '8px', display: 'flex', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin + '?batchId=' + b.batchId.toString())}&margin=0`} alt="QR Code" style={{ width: '80px', height: '80px', borderRadius: '4px' }} />
+                      </div>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Quét truy xuất nhanh</div>
+                        <button onClick={() => { navigator.clipboard.writeText(window.location.origin + '?batchId=' + b.batchId.toString()); setMsg('✅ Đã copy link Lô ' + b.batchId); }} style={{ fontSize: '10px', padding: '4px 8px', borderRadius: '4px', background: 'rgba(14,165,233,0.1)', color: '#38bdf8', border: '1px solid rgba(14,165,233,0.3)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', width: 'fit-content', transition: 'all 0.2s', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          <Link size={12}/> Copy link
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
-                      <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Quét truy xuất nhanh</div>
-                      <button onClick={() => { navigator.clipboard.writeText(window.location.origin + '?batchId=' + b.batchId.toString()); setMsg('✅ Đã copy link Lô ' + b.batchId); }} style={{ fontSize: '10px', padding: '4px 8px', borderRadius: '4px', background: 'rgba(14,165,233,0.1)', color: '#38bdf8', border: '1px solid rgba(14,165,233,0.3)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', width: 'fit-content', transition: 'all 0.2s', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        <Link size={12}/> Copy link
-                      </button>
-                    </div>
-                  </div>
 
-                  <button onClick={() => setLogisticsForm({ batchId: b.batchId.toString(), eventType: 'Đóng gói', location: '', temperature: '', humidity: '', anomaly: '', operatorName: '' })} className="btn primary-btn" style={{marginTop: '12px', fontSize: '14px', padding: '10px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#ffffff', border: '1px solid rgba(16,185,129,0.4)', color: '#059669', fontWeight: 700, borderRadius: '12px', boxShadow: '0 4px 12px rgba(16,185,129,0.15)'}}>
-                    <Truck size={18}/> Cập nhật Logistics
-                  </button>
+                    <button onClick={() => setLogisticsForm({ batchId: b.batchId.toString(), eventType: 'Đóng gói', location: '', temperature: '', humidity: '', anomaly: '', operatorName: '' })} className="btn primary-btn" style={{marginTop: '12px', fontSize: '14px', padding: '10px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#ffffff', border: '1px solid rgba(16,185,129,0.4)', color: '#059669', fontWeight: 700, borderRadius: '12px', boxShadow: '0 4px 12px rgba(16,185,129,0.15)'}}>
+                      <Truck size={18}/> Cập nhật Logistics
+                    </button>
+                  </div>
                 </div>
               );
             })}

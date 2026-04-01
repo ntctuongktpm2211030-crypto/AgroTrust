@@ -4,7 +4,7 @@ import { ShieldCheck, Key, Loader2, FileSignature, FolderOpen, FileText, Message
 
 const OPEN_INSPECTION_FOR_ALL = true;
 
-export default function InspectionDashboard({ contract, account }) {
+export default function InspectionDashboard({ contract, account, onUserAction }) {
   const [isInspector, setIsInspector] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminMsg, setAdminMsg] = useState('');
@@ -74,6 +74,11 @@ export default function InspectionDashboard({ contract, account }) {
       setIsInspector(true);
       await loadAllBatches();
       setAdminMsg('✅ Đã cấp quyền Kiểm định viên thành công!');
+      onUserAction?.({
+        type: 'inspection-role',
+        title: 'Cấp quyền kiểm định viên',
+        detail: `Đã cấp quyền cho ví ${addr.slice(0, 6)}...${addr.slice(-4)}`,
+      });
     } catch (err) {
       setAdminMsg('❌ Lỗi: ' + (err.reason || err.message));
     } finally { setGrantingRole(false); }
@@ -163,6 +168,11 @@ export default function InspectionDashboard({ contract, account }) {
       );
       await tx.wait();
       setMsg('🎉 Hoàn tất: Phiếu kiểm định đã được cấp phát thành công!');
+      onUserAction?.({
+        type: 'inspection',
+        title: 'Ghi phiếu kiểm định',
+        detail: `Lô #${form.batchId} - kết quả "${form.result}"`,
+      });
       setTimeout(() => setMsg(''), 5000);
       setForm(f => ({ ...f, inspectorName:'', organization:'', inspectionContent:'', note:'', inspectionHash:'' }));
       loadInspections(form.batchId);
