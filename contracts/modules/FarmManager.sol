@@ -75,4 +75,12 @@ abstract contract FarmManager is RoleManager {
 
         emit FarmStatusUpdated(_farmId, _isActive);
     }
+
+    /**
+     * @dev Ẩn / hiện nông trại đối với khách tra cứu & danh sách công khai (không đổi quyền chủ sở hữu)
+     */
+    function setFarmHiddenFromCustomer(uint256 _farmId, bool _hidden) external onlyFarmOwner(_farmId) {
+        farmHiddenFromCustomer[_farmId] = _hidden;
+        emit FarmCustomerVisibilityChanged(_farmId, _hidden);
+    }
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { uploadBase64ToPinata } from '../utils/pinata';
-import { Tractor, Camera, Trash2, PlusCircle, Loader2, CheckCircle2, XCircle, User, Phone, MapPin, Leaf, Maximize, FileText } from 'lucide-react';
+import { Tractor, Camera, Trash2, PlusCircle, Loader2, CheckCircle2, XCircle, User, Phone, MapPin, Leaf, Maximize, FileText, Map, AlertTriangle } from 'lucide-react';
 
 /* ── Storage helper (Lưu CID của IPFS thay vì base64) ────────
    Key: "agrotrust_crop_images"
@@ -64,6 +65,40 @@ export default function FarmDashboard({ contract, account, onUserAction }) {
     } catch (e) { console.error(e); }
   };
 
+  const getLocation = () => {
+    if (!navigator.geolocation) {
+      setMsg('❌ Trình duyệt của bạn không hỗ trợ định vị GPS.');
+      return;
+    }
+    setMsg('⏳ Đang lấy vị trí GPS hiện tại...');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const coords = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+        setMsg('✅ Đã lấy tọa độ thành công, đang xử lý địa chỉ...');
+        
+        let newLocation = form.location;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await res.json();
+          if (data && data.display_name) {
+             newLocation = data.display_name;
+          }
+        } catch (e) {
+          console.error("Reverse geocoding failed", e);
+        }
+        
+        setForm(f => ({ ...f, gpsCoordinates: coords, location: newLocation || f.location }));
+        setMsg('✅ Đã cập nhật tọa độ GPS và địa chỉ tự động!');
+        setTimeout(() => setMsg(''), 5000);
+      },
+      (err) => {
+        setMsg(`❌ Lỗi vị trí: ${err.message}. Vui lòng cấp quyền (Allow) định vị.`);
+        setTimeout(() => setMsg(''), 5000);
+      }
+    );
+  };
+
   /* Upload ảnh cho từng loại nông sản riêng */
   const handleImageUpload = (cropKey, e) => {
     const file = e.target.files?.[0];
@@ -121,14 +156,14 @@ export default function FarmDashboard({ contract, account, onUserAction }) {
         localStorage.setItem('agrotrust_crop_images', JSON.stringify(storedIPFS));
       }
 
-      setMsg('🎉 Hoàn tất: Nông trại đã được khởi tạo và xác thực trên chuỗi!');
+      setMsg('✅ Hoàn tất: Nông trại đã được khởi tạo và xác thực trên chuỗi!');
       onUserAction?.({
         type: 'farm',
         title: 'Tạo nông trại mới',
         detail: `Nông trại "${form.farmName}" đã được ghi nhận trên blockchain`,
       });
       setTimeout(() => setMsg(''), 5000);
-      setForm({ farmName:'', location:'', cropType:'', area:'' }); // Resetting only the fields used in the new addFarm call
+      setForm({ farmName: '', ownerName: '', phoneNumber: '', location: '', gpsCoordinates: '', area: '', cropType: '', description: '' });
       setCropPicMap({}); // Clear all crop images
       loadMyFarms();
     } catch (err) {
@@ -152,39 +187,90 @@ export default function FarmDashboard({ contract, account, onUserAction }) {
           <div className="form-row">
             <div className="form-group">
               <label>Tên nông trại <span className="req">*</span></label>
-              <input value={form.farmName} onChange={set('farmName')} placeholder="VD: Trang trại Xanh Đà Lạt" />
+              <div style={{ position: 'relative' }}>
+                <Tractor size={18} color="#10b981" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.7 }} />
+                <input style={{ paddingLeft: '38px', width: '100%' }} value={form.farmName} onChange={set('farmName')} placeholder="VD: Trang trại Xanh Đà Lạt" />
+              </div>
             </div>
             <div className="form-group">
               <label>Chủ nông trại <span className="req">*</span></label>
-              <input value={form.ownerName} onChange={set('ownerName')} placeholder="Họ tên chủ nông trại" />
+              <div style={{ position: 'relative' }}>
+                <User size={18} color="#10b981" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.7 }} />
+                <input 
+                  style={{ paddingLeft: '38px', width: '100%' }}
+                  value={form.ownerName} 
+                  onChange={(e) => setForm(f => ({ ...f, ownerName: e.target.value.replace(/[0-9]/g, '') }))} 
+                  placeholder="Họ tên chủ (Không nhập số)" 
+                />
+              </div>
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
               <label>Số điện thoại <span className="req">*</span></label>
-              <input value={form.phoneNumber} onChange={set('phoneNumber')} placeholder="0901 234 567" />
+              <div style={{ position: 'relative' }}>
+                <Phone size={18} color="#10b981" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.7 }} />
+                <input 
+                  style={{ paddingLeft: '38px', width: '100%' }}
+                  value={form.phoneNumber} 
+                  onChange={(e) => setForm(f => ({ ...f, phoneNumber: e.target.value.replace(/[^0-9]/g, '') }))} 
+                  placeholder="VD: 0901234567 (Chỉ nhập số)" 
+                />
+              </div>
             </div>
             <div className="form-group">
               <label>Diện tích canh tác</label>
-              <input value={form.area} onChange={set('area')} placeholder="VD: 5 hecta" />
+              <div style={{ position: 'relative' }}>
+                <Maximize size={18} color="#10b981" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.7 }} />
+                <input style={{ paddingLeft: '38px', width: '100%' }} value={form.area} onChange={set('area')} placeholder="VD: 5 hecta" />
+              </div>
             </div>
           </div>
           <div className="form-group">
-            <label>Địa chỉ cụ thể <span className="req">*</span></label>
-            <input value={form.location} onChange={set('location')} placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label style={{ marginBottom: 0 }}>Địa chỉ cụ thể <span className="req">*</span></label>
+              <button 
+                type="button" 
+                onClick={getLocation} 
+                className="btn-outline"
+                style={{ 
+                  fontSize: '12px', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px', 
+                  border: '1px solid #10b981', color: '#059669', background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)', 
+                  borderRadius: '20px', fontWeight: 700, boxShadow: '0 2px 8px rgba(16, 185, 129, 0.2)', transition: 'all 0.3s', cursor: 'pointer'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.2)'; }}
+              >
+                <div style={{ background: '#10b981', color: '#fff', borderRadius: '50%', padding: '2px', display: 'flex' }}>
+                   <MapPin size={12}/> 
+                </div>
+                Tự động định vị
+              </button>
+            </div>
+            <div style={{ position: 'relative' }}>
+               <MapPin size={18} color="#10b981" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.7 }} />
+               <input style={{ paddingLeft: '38px', width: '100%' }} value={form.location} onChange={set('location')} placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh thành..." />
+            </div>
           </div>
           <div className="form-row">
             <div className="form-group">
               <label>Tọa độ GPS</label>
-              <input value={form.gpsCoordinates} onChange={set('gpsCoordinates')} placeholder="VD: 11.9404, 108.4583" />
+              <div style={{ position: 'relative' }}>
+                <Map size={18} color="#10b981" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.7 }} />
+                <input style={{ paddingLeft: '38px', width: '100%' }} value={form.gpsCoordinates} onChange={set('gpsCoordinates')} placeholder="VD: 11.9404, 108.4583" />
+              </div>
             </div>
             <div className="form-group">
               <label>Loại nông sản chính</label>
-              <input
-                value={form.cropType}
-                onChange={set('cropType')}
-                placeholder="VD: Cà chua, Dâu tây, Lúa ST25"
-              />
+              <div style={{ position: 'relative' }}>
+                <Leaf size={18} color="#10b981" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.7 }} />
+                <input
+                  style={{ paddingLeft: '38px', width: '100%' }}
+                  value={form.cropType}
+                  onChange={set('cropType')}
+                  placeholder="VD: Cà chua, Dâu tây, Lúa ST25"
+                />
+              </div>
             </div>
           </div>
 
@@ -244,9 +330,20 @@ export default function FarmDashboard({ contract, account, onUserAction }) {
 
           <div className="form-group">
             <label>Mô tả &amp; Tiêu chuẩn</label>
-            <textarea value={form.description} onChange={set('description')} placeholder="Mô tả ngắn nông trại, tiêu chuẩn đạt được (VietGAP, GlobalGAP, Organic...)" />
+            <div style={{ position: 'relative' }}>
+               <FileText size={18} color="#10b981" style={{ position: 'absolute', left: '12px', top: '14px', opacity: 0.7 }} />
+               <textarea style={{ paddingLeft: '38px', width: '100%', minHeight: '80px' }} value={form.description} onChange={set('description')} placeholder="Mô tả ngắn nông trại, tiêu chuẩn đạt được (VietGAP, GlobalGAP, Organic...)" />
+            </div>
           </div>
-          {msg && <p className={`form-msg ${msg.startsWith('✅') ? 'success' : msg.startsWith('❌') ? 'error-msg' : ''}`}>{msg}</p>}
+          {msg && createPortal(
+            <div style={{ zIndex: 9999999 }} className={`form-msg ${msg.match(/^[✅🎉✨]/) ? 'success' : msg.match(/^[❌⚠️]/) ? 'error-msg' : ''}`}>
+              {msg.match(/^[✅🎉✨]/) && <CheckCircle2 size={22} className="toast-anim-success" />}
+              {msg.match(/^[❌⚠️]/) && <AlertTriangle size={22} className="toast-anim-error" />}
+              {msg.match(/^[⏳⛓]/) && <Loader2 size={22} className="toast-anim-loading" />}
+              <span>{msg.replace(/^[✅🎉✨❌⚠️⏳⛓]\s*/, '')}</span>
+            </div>,
+            document.body
+          )}
           <button type="submit" className="btn primary-btn" disabled={loading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
             {loading ? <><Loader2 size={18} className="tsb-spin" /> Đang xử lý...</> : <><PlusCircle size={18} /> Tạo Nông Trại</>}
           </button>
@@ -266,25 +363,71 @@ export default function FarmDashboard({ contract, account, onUserAction }) {
         {farms.length === 0 ? (
           <p className="empty-msg">Bạn chưa có nông trại nào. Hãy tạo mới ở trên!</p>
         ) : (
-          <div className="farms-grid">
+          <div className="batch-cards-grid">
             {farms.map(f => {
-              const cid = cropImages[f.cropType?.trim().toLowerCase()];
+              const cropList = parseCropTypes(f.cropType || '');
+              const validCrops = cropList.filter(c => cropImages[c.toLowerCase()]);
+              
               return (
                 <div className="farm-item" key={f.farmId.toString()}>
-                  {cid && (
-                    <div className="farm-crop-img">
-                      <img src={getIpfsUrl(cid) || cid} alt={f.cropType} />
-                    </div>
-                  )}
+                  {/* Fixed Height Image Gallery Wrapper */}
+                  <div style={{ height: '160px', display: 'flex', gap: '12px', overflowX: 'auto', marginBottom: '16px', flexShrink: 0, alignItems: 'center' }} className="custom-scroll">
+                    {validCrops.length === 0 ? (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(34,197,94,0.05)', borderRadius: '12px', border: '1.5px dashed rgba(34,197,94,0.2)' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--text-3)', fontWeight: 700 }}>Chưa có ảnh nông sản</span>
+                      </div>
+                    ) : (
+                      validCrops.map(crop => {
+                        const cropCid = cropImages[crop.toLowerCase()];
+                        return (
+                          <div key={crop} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flex: validCrops.length === 1 ? '1' : '0 0 auto', height: '100%' }}>
+                            <img 
+                              src={getIpfsUrl(cropCid) || cropCid} 
+                              alt={crop} 
+                              style={{ 
+                                width: validCrops.length === 1 ? '100%' : '110px', 
+                                height: validCrops.length === 1 ? 'auto' : '110px', 
+                                flex: validCrops.length === 1 ? '1' : 'none',
+                                objectFit: 'cover', 
+                                borderRadius: '12px', 
+                                border: '1px solid rgba(0,0,0,0.08)', 
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.06)' 
+                              }} 
+                            />
+                            <span style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--text-1)', textAlign: 'center' }}>
+                              {crop}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  
                   <div className="farm-id">#{f.farmId.toString()}</div>
-                  <div className="farm-title">{f.farmName}</div>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><User size={14} /> {f.ownerName} — <Phone size={14} /> {f.phoneNumber}</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={14} /> {f.location}</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {f.cropType} — <Maximize size={14} /> {f.area}</span>
-                  {f.description && <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><FileText size={14} /> {f.description}</span>}
-                  <span className={`active-badge ${f.isActive ? '' : 'inactive'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    {f.isActive ? <><CheckCircle2 size={14} /> Đang hoạt động</> : <><XCircle size={14} /> Tạm ngưng</>}
-                  </span>
+                  <div className="farm-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.farmName}</div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <User size={14} style={{ flexShrink: 0 }} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.ownerName}</span> — <Phone size={14} style={{ flexShrink: 0 }} /> {f.phoneNumber}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <MapPin size={14} style={{ flexShrink: 0 }} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.location}</span>
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <Leaf size={14} style={{ flexShrink: 0 }} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.cropType}</span> — <Maximize size={14} style={{ flexShrink: 0 }} /> {f.area}
+                    </span>
+                    {f.description && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <FileText size={14} style={{ flexShrink: 0 }} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.description}</span>
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="batch-card-bottom">
+                    <span className={`active-badge ${f.isActive ? '' : 'inactive'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      {f.isActive ? <><CheckCircle2 size={14} /> Đang hoạt động</> : <><XCircle size={14} /> Tạm ngưng</>}
+                    </span>
+                  </div>
                 </div>
               );
             })}

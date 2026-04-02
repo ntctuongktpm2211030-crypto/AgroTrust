@@ -1,5 +1,5 @@
 const ACTIVITY_STORAGE_KEY = "agrotrust_user_activity";
-const MAX_ACTIVITY_ITEMS = 200;
+const MAX_ACTIVITY_ITEMS = 10000; // Lưu cực dài, mười nghìn thao tác
 
 export const getUserActivity = () => {
   try {

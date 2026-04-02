@@ -547,29 +547,129 @@ body {
 }
 .amber-btn:disabled { opacity:.6; cursor:not-allowed; transform:none; filter: grayscale(20%); }
 
-/* ── MESSAGES (BOTTOM RIGHT TOAST) ─────────────────── */
+/* ── MESSAGES (GLOBAL TOASTS & INLINE) ─────────────────── */
 @keyframes toastSlideIn {
-  0%   { opacity: 0; transform: translateX(50px); }
-  100% { opacity: 1; transform: translateX(0); }
+  0%   { opacity: 0; transform: translateX(50px) scale(0.9); }
+  50%  { transform: translateX(-10px) scale(1.02); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
 }
 
+/* 1. Form Specific Toasts (.form-msg) */
 .form-msg {
-  position: fixed; bottom: 24px; right: 24px; z-index: 999999;
-  font-size: 14px; font-weight: 500; padding: 16px 20px;
-  border-radius: 12px; text-align: left;
-  display: flex; align-items: center; gap: 12px;
-  animation: toastSlideIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.05);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  max-width: 380px; width: max-content;
-  color: #fff;
-  background: #1e293b; /* Dark minimal toast */
-  border: 1px solid rgba(255,255,255,0.1);
-  top: auto; left: auto; transform: none;
+  position: fixed; top: 24px; right: 24px; z-index: 999999;
+  font-family: 'Quicksand', 'Nunito', sans-serif;
+  font-size: 14.5px; font-weight: 700; padding: 18px 24px;
+  border-radius: 20px; text-align: left;
+  display: flex; align-items: center; gap: 14px;
+  animation: toastSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  
+  /* Glassmorphism premium effect */
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04), inset 0 1px 2px rgba(255, 255, 255, 1);
+  
+  max-width: 420px; width: max-content;
+  color: #1f2937;
+  overflow: hidden;
+  bottom: auto; left: auto; transform: none;
 }
 
-.form-msg.success { border-left: 4px solid var(--green-bright); }
-.error-msg, .form-msg.error-msg { border-left: 4px solid var(--danger); background: #1e293b !important; color: #fff !important; }
+/* Color indicator bar on the left */
+.form-msg::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: #cbd5e1;
+}
+
+.form-msg.success { 
+  background: linear-gradient(135deg, rgba(236,253,245,0.95), rgba(209,250,229,0.85));
+  border-color: rgba(52,211,153,0.5);
+  color: #064e3b;
+  box-shadow: 0 12px 32px rgba(16,185,129,0.15), inset 0 1px 2px rgba(255,255,255,1);
+}
+.form-msg.success::before { background: linear-gradient(180deg, #34d399, #10b981); }
+
+.error-msg, .form-msg.error-msg { 
+  background: linear-gradient(135deg, rgba(254,242,242,0.95), rgba(254,226,226,0.85)) !important;
+  border-color: rgba(248,113,113,0.5) !important;
+  color: #7f1d1d !important;
+  box-shadow: 0 12px 32px rgba(239,68,68,0.15), inset 0 1px 2px rgba(255,255,255,1) !important;
+}
+.error-msg::before, .form-msg.error-msg::before { background: linear-gradient(180deg, #f87171, #ef4444); }
+
+/* 2. Global Toasts for App.jsx (.premium-toast) */
+.toast-container {
+  position: fixed; top: 24px; right: 24px; z-index: 99999;
+  display: flex; flex-direction: column; gap: 14px;
+  align-items: flex-end; pointer-events: none;
+}
+.premium-toast {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 20px; border-radius: 20px;
+  font-family: 'Quicksand', 'Nunito', sans-serif; font-size: 14.5px; font-weight: 700;
+  animation: toastSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  pointer-events: auto;
+  min-width: 320px; max-width: 420px;
+  position: relative; overflow: hidden;
+  backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+}
+.premium-toast.t-success {
+  background: linear-gradient(135deg, rgba(236,253,245,0.95), rgba(209,250,229,0.85));
+  border-color: rgba(52,211,153,0.5); color: #064e3b;
+  box-shadow: 0 12px 32px rgba(16,185,129,0.15), inset 0 1px 2px rgba(255,255,255,1);
+}
+.premium-toast.t-error {
+  background: linear-gradient(135deg, rgba(254,242,242,0.95), rgba(254,226,226,0.85));
+  border-color: rgba(248,113,113,0.5); color: #7f1d1d;
+  box-shadow: 0 12px 32px rgba(239,68,68,0.15), inset 0 1px 2px rgba(255,255,255,1);
+}
+.toast-icon {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 18px;
+}
+.premium-toast.t-success .toast-icon { background: rgba(16,185,129,0.2); }
+.premium-toast.t-error .toast-icon { background: rgba(239,68,68,0.2); }
+.toast-close {
+  background: transparent; border: none; cursor: pointer; padding: 6px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; transition: background 0.2s; margin-left: auto;
+}
+.premium-toast.t-success .toast-close { color: rgba(6,78,59,0.5); }
+.premium-toast.t-success .toast-close:hover { background: rgba(6,78,59,0.1); color: #064e3b; }
+.premium-toast.t-error .toast-close { color: rgba(127,29,29,0.5); }
+.premium-toast.t-error .toast-close:hover { background: rgba(127,29,29,0.1); color: #7f1d1d; }
+
+/* ── ANIMATED ICONS ───────────────────────────── */
+@keyframes anim-pop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  60%  { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes anim-shake {
+  0%, 100% { transform: translateX(0); }
+  25%  { transform: translateX(-3px) rotate(-8deg); }
+  75%  { transform: translateX(3px) rotate(8deg); }
+}
+@keyframes anim-spin {
+  100% { transform: rotate(360deg); }
+}
+.toast-anim-success {
+  animation: anim-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.toast-anim-error {
+  animation: anim-shake 0.4s ease-in-out infinite alternate;
+}
+.toast-anim-loading {
+  animation: anim-spin 1.2s linear infinite;
+}
+
+/* Fix text span alignment in form-msg */
+.form-msg span {
+  flex: 1;
+  word-break: break-word;
+}
+
 
 /* ── LAYOUT ───────────────────────────────────── */
 .main-layout { display:grid; grid-template-columns:var(--sidebar-w) 1fr; min-height:100vh; width:100%; }

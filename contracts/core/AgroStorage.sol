@@ -31,6 +31,10 @@ abstract contract AgroStorage {
     mapping(uint256 => Inspection[]) public batchInspections;              // batchId => Mảng các Phiếu kiểm định
     mapping(uint256 => LogisticsEvent[]) public batchLogistics;            // batchId => Mảng sự kiện logistics
 
+    /// true = ẩn khỏi tra cứu / danh sách công khai cho khách (chủ vẫn quản lý trong app)
+    mapping(uint256 => bool) public farmHiddenFromCustomer;
+    mapping(uint256 => bool) public batchHiddenFromCustomer;
+
     // ------------------------------------------------------------------------
     // Sự kiện (Events) - Dùng để báo cho Frontend biết Blockchain vừa cập nhật
     // ------------------------------------------------------------------------
@@ -38,6 +42,8 @@ abstract contract AgroStorage {
     event InspectorRemoved(address indexed inspector);
     event FarmAdded(uint256 indexed farmId, address indexed ownerAddress, string farmName);
     event FarmStatusUpdated(uint256 indexed farmId, bool isActive);
+    event FarmCustomerVisibilityChanged(uint256 indexed farmId, bool hiddenFromCustomer);
+    event BatchCustomerVisibilityChanged(uint256 indexed batchId, bool hiddenFromCustomer);
     event BatchAdded(uint256 indexed batchId, uint256 indexed farmId, string productName);
     event BatchStatusUpdated(uint256 indexed batchId, BatchStatus status);
     event CultivationLogAdded(uint256 indexed logId, uint256 indexed batchId, string actionType);

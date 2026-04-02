@@ -2,15 +2,11 @@
 export const NETWORK_CONFIG = {
   "0x88bb0": { // 560048 (Ethereum Hoodi Testnet)
     name: "Ethereum Hoodi Testnet",
-    address: "0xea69deE3F9DD91BCf817f99C76E79849069cd04d",
+    address: "0xbD27D49179221290ea4212ae69f2709eD2e636ED",
   },
   "0xaa36a7": { // 11155111 (Sepolia Testnet)
     name: "Sepolia Testnet",
-    address: "0x9138745c8C83bb0026B8EA26F3Ed330e3c2023e4", // Điền địa chỉ sau khi deploy
-  },
-  "0xaef3": { // 44787 (Celo Alfajores Testnet)
-    name: "Celo Alfajores Testnet",
-    address: "0x55dB029efC2C14976b8f3DFd7C3e5BBdf7fD07C2", 
+    address: "0x13E09428920C8c6F8A2cCbc24794BD4cD4A8C4eA", // Điền địa chỉ sau khi deploy
   },
   "0x515": { // 1301 (Unichain Sepolia Testnet)
     name: "Unichain Sepolia Testnet",
@@ -71,6 +67,25 @@ export const CONTRACT_ABI = [
       }
     ],
     "name": "BatchAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "batchId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "hiddenFromCustomer",
+        "type": "bool"
+      }
+    ],
+    "name": "BatchCustomerVisibilityChanged",
     "type": "event"
   },
   {
@@ -165,6 +180,25 @@ export const CONTRACT_ABI = [
       }
     ],
     "name": "FarmAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "farmId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "hiddenFromCustomer",
+        "type": "bool"
+      }
+    ],
+    "name": "FarmCustomerVisibilityChanged",
     "type": "event"
   },
   {
@@ -479,6 +513,25 @@ export const CONTRACT_ABI = [
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "name": "batchHiddenFromCustomer",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
@@ -690,6 +743,11 @@ export const CONTRACT_ABI = [
         "internalType": "uint256",
         "name": "timestamp",
         "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "isActive",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -772,6 +830,25 @@ export const CONTRACT_ABI = [
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "farmHiddenFromCustomer",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -1064,6 +1141,11 @@ export const CONTRACT_ABI = [
             "internalType": "uint256",
             "name": "timestamp",
             "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "isActive",
+            "type": "bool"
           }
         ],
         "internalType": "struct CultivationLog[]",
@@ -1201,12 +1283,124 @@ export const CONTRACT_ABI = [
         "type": "uint256"
       },
       {
+        "internalType": "bool",
+        "name": "_hidden",
+        "type": "bool"
+      }
+    ],
+    "name": "setBatchHiddenFromCustomer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_farmId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "_hidden",
+        "type": "bool"
+      }
+    ],
+    "name": "setFarmHiddenFromCustomer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_batchId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_logId",
+        "type": "uint256"
+      }
+    ],
+    "name": "toggleLogStatus",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_batchId",
+        "type": "uint256"
+      },
+      {
         "internalType": "enum BatchStatus",
         "name": "_status",
         "type": "uint8"
       }
     ],
     "name": "updateBatchStatus",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_batchId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_logId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "_actionType",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_description",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_materialName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_dosage",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_operatorName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_weatherCondition",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_iotData",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_note",
+        "type": "string"
+      }
+    ],
+    "name": "updateCultivationLog",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

@@ -76,7 +76,6 @@ function AnimatedCard({ children, className, delay = 0, onClick }) {
 const NETWORK_RPC = {
   "0x88bb0": "https://rpc.hoodi.ethpandaops.io",        // Hoodi
   "0xaa36a7": "https://rpc.ankr.com/eth_sepolia",        // Sepolia (Ankr allows CORS)
-  "0xaef3": "https://alfajores-forno.celo-testnet.org",// Celo Alfajores
   "0x515": "https://sepolia.unichain.org"             // Unichain Sepolia
 };
 
@@ -85,6 +84,31 @@ const getImgSrc = (cid) => {
   if (!cid) return null;
   if (cid.startsWith('data:')) return cid;
   return `https://ipfs.io/ipfs/${cid}`;
+};
+
+/** Gọi getter ẩn/hiện khách — retry khi RPC lỗi, mặc định ẩn nếu không đọc được */
+const safeCustomerHidden = async (c, method, id) => {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await c[method](id);
+    } catch (err) {
+      const msg = (err?.message || '').toLowerCase();
+      // Contract cũ chưa có hàm → không ẩn
+      if (msg.includes('call revert') || msg.includes('missing revert') ||
+          msg.includes('function selector') || msg.includes('no matching function') ||
+          msg.includes('could not decode')) {
+        return false;
+      }
+      // RPC lỗi tạm → thử lại
+      if (attempt < 2) {
+        await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
+        continue;
+      }
+      console.warn(`[AgroTrust] ${method}(${id}) failed after 3 attempts, default → hidden`, err);
+      return true; // An toàn: mặc định ẩn khi không đọc được
+    }
+  }
+  return true;
 };
 
 // Build read-only contract instances for all configured networks
@@ -188,6 +212,9 @@ export default function TraceabilityLookup({ contract, forcedPage = null }) {
             for (let i = 1n; i <= fc; i++) {
               const f = await c.farms(i);
               if (!f || f.farmId === 0n) continue;
+              if (!f.isActive) continue;
+              const farmHidden = await safeCustomerHidden(c, 'farmHiddenFromCustomer', i);
+              if (farmHidden) continue;
               const farmId = f.farmId.toString();
               const farmKey = `${networkName}|${farmId}`;
               if (seenFarm.has(farmKey)) continue;
@@ -223,6 +250,12 @@ export default function TraceabilityLookup({ contract, forcedPage = null }) {
             for (let i = 1n; i <= bc; i++) {
               const b = await c.batches(i);
               if (!b || b.batchId === 0n) continue;
+              const farmForBatch = await c.farms(b.farmId);
+              if (!farmForBatch.isActive) continue;
+              const farmH = await safeCustomerHidden(c, 'farmHiddenFromCustomer', b.farmId);
+              if (farmH) continue;
+              const batchH = await safeCustomerHidden(c, 'batchHiddenFromCustomer', b.batchId);
+              if (batchH) continue;
               const batchId = b.batchId.toString();
               const farmId = b.farmId.toString();
               const batchKey = `${networkName}|${batchId}`;
@@ -275,22 +308,44 @@ export default function TraceabilityLookup({ contract, forcedPage = null }) {
       const bid = BigInt(id);
       const sources = buildAllContracts();
 
-      const promises = sources.map(async ({ chainHex, networkName, contract: c }) => {
+      const promises = sources.map(async ({ networkName, contract: c }) => {
         try {
           const batch = await c.batches(bid);
-          if (!batch || batch.batchId === 0n) return null;
+          if (!batch || batch.batchId === 0n) return { kind: 'absent' };
           const farm = await c.farms(batch.farmId);
+          const farmHidden = await safeCustomerHidden(c, 'farmHiddenFromCustomer', batch.farmId);
+          const batchHidden = await safeCustomerHidden(c, 'batchHiddenFromCustomer', bid);
+          if (!farm.isActive || farmHidden || batchHidden) return { kind: 'blocked' };
           const logs = await c.getBatchLogs(bid);
           const inspections = await c.getBatchInspections(bid);
           const logistics = await c.getBatchLogistics(bid);
-          return { batch, farm, logs: [...logs].reverse(), inspections: [...inspections].reverse(), logistics: [...logistics].reverse(), networkName };
-        } catch { return null; }
+          return {
+            kind: 'ok',
+            data: {
+              batch,
+              farm,
+              logs: [...logs].reverse(),
+              inspections: [...inspections].reverse(),
+              logistics: [...logistics].reverse(),
+              networkName,
+            },
+          };
+        } catch {
+          return { kind: 'absent' };
+        }
       });
 
       const results = await Promise.all(promises);
-      const found = results.find(r => r !== null);
-      if (!found) { setError('Không tìm thấy lô hàng với mã này trên tất cả các mạng.'); return; }
-      setResult(found);
+      const ok = results.find((r) => r.kind === 'ok');
+      if (ok) {
+        setResult(ok.data);
+        return;
+      }
+      if (results.some((r) => r.kind === 'blocked')) {
+        setError('Lô hoặc nông trại không hiển thị công khai (đã ẩn hoặc tạm ngưng).');
+        return;
+      }
+      setError('Không tìm thấy lô hàng với mã này trên tất cả các mạng.');
     } catch (e) {
       setError('Lỗi khi tra cứu: ' + (e.reason || e.message));
     } finally {
@@ -312,10 +367,14 @@ export default function TraceabilityLookup({ contract, forcedPage = null }) {
           const count = await c.batchCount();
           for (let i = 1n; i <= count; i++) {
             const batch = await c.batches(i);
-            if (batch.productName.toLowerCase().includes(query)) {
-              const farm = await c.farms(batch.farmId);
-              allMatches.push({ batch, farm, networkName });
-            }
+            if (!batch.productName.toLowerCase().includes(query)) continue;
+            const farm = await c.farms(batch.farmId);
+            if (!farm.isActive) continue;
+            const farmHidden = await safeCustomerHidden(c, 'farmHiddenFromCustomer', batch.farmId);
+            if (farmHidden) continue;
+            const batchHidden = await safeCustomerHidden(c, 'batchHiddenFromCustomer', batch.batchId);
+            if (batchHidden) continue;
+            allMatches.push({ batch, farm, networkName });
           }
         } catch { }
       }));
@@ -776,29 +835,32 @@ export default function TraceabilityLookup({ contract, forcedPage = null }) {
               <span className="tsh-icon" style={{ display: 'flex' }}><BookText size={20}/></span>
               Hành Trình Canh Tác
             </div>
-            {result.logs.length === 0 ? (
-              <div className="trace-empty" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Sprout size={18}/> Chưa có nhật ký canh tác nào được ghi nhận.</div>
-            ) : (
-              <div className="trace-timeline-wrap">
-                {result.logs.map((log, i) => (
-                  <AnimatedCard key={i} className="trace-tl-item" delay={i * 120}>
-                    <div className="trace-tl-dot" />
-                    <div className="trace-tl-card">
-                      <div className="ttc-header">
-                        <span className="ttc-time">{tsToDateTime(log.timestamp)}</span>
-                        <span className="ttc-type">{log.actionType}</span>
+            {(() => {
+              const activeLogs = result.logs.filter((log) => log.isActive);
+              return activeLogs.length === 0 ? (
+                <div className="trace-empty" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Sprout size={18}/> Chưa có nhật ký canh tác nào được ghi nhận.</div>
+              ) : (
+                <div className="trace-timeline-wrap">
+                  {activeLogs.map((log, i) => (
+                    <AnimatedCard key={i} className="trace-tl-item" delay={i * 120}>
+                      <div className="trace-tl-dot" />
+                      <div className="trace-tl-card">
+                        <div className="ttc-header">
+                          <span className="ttc-time">{tsToDateTime(log.timestamp)}</span>
+                          <span className="ttc-type">{log.actionType}</span>
+                        </div>
+                        <div className="ttc-desc">{log.description}</div>
+                        <div className="ttc-tags">
+                          {log.operatorName && <span className="ttc-tag" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={12} color="#0f766e"/> {log.operatorName}</span>}
+                          {log.materialName && <span className="ttc-tag" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Beaker size={12} color="#8b5cf6"/> {log.materialName} ({log.dosage})</span>}
+                          {log.weatherCondition && <span className="ttc-tag" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Sun size={12} color="#f59e0b"/> {log.weatherCondition}</span>}
+                        </div>
                       </div>
-                      <div className="ttc-desc">{log.description}</div>
-                      <div className="ttc-tags">
-                        {log.operatorName && <span className="ttc-tag" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><User size={12} color="#0f766e"/> {log.operatorName}</span>}
-                        {log.materialName && <span className="ttc-tag" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Beaker size={12} color="#8b5cf6"/> {log.materialName} ({log.dosage})</span>}
-                        {log.weatherCondition && <span className="ttc-tag" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Sun size={12} color="#f59e0b"/> {log.weatherCondition}</span>}
-                      </div>
-                    </div>
-                  </AnimatedCard>
-                ))}
-              </div>
-            )}
+                    </AnimatedCard>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Logistics Timeline */}

@@ -7,9 +7,10 @@ import LogDashboard from "./components/LogDashboard.jsx";
 import InspectionDashboard from "./components/InspectionDashboard.jsx";
 import TraceabilityLookup from "./components/TraceabilityLookup.jsx";
 import AnalyticsDashboard from "./components/AnalyticsDashboard.jsx";
+import FarmListingSettings from "./components/FarmListingSettings.jsx";
 import UserActivityDashboard from "./components/UserActivityDashboard.jsx";
 import { addUserActivity } from "./utils/userActivity.js";
-import { Tractor, Wheat, FileText, ShieldCheck, Search, Building2, Package, Sprout, TrendingUp, History } from 'lucide-react';
+import { Tractor, Wheat, FileText, ShieldCheck, Search, Building2, Package, Sprout, TrendingUp, History, Eye } from 'lucide-react';
 import './index.css';
 
 const ColorfulBatchIcon = () => (
@@ -47,6 +48,12 @@ const TABS = [
     color: '#0284c7', glow: 'rgba(2,132,199,.35)',
     grad: 'linear-gradient(135deg,#e0f2fe,#f0f9ff)',
     tag: 'Ghi chép'
+  },
+  {
+    key: 'listing', icon: <Eye size={32} color="#0369a1" strokeWidth={2.2} />, label: 'Hiển Thị & Khách Hàng', desc: 'Ẩn nông trại/lô khỏi tra cứu, sửa hồ sơ hiển thị',
+    color: '#0369a1', glow: 'rgba(3,105,161,.35)',
+    grad: 'linear-gradient(135deg,#e0f2fe,#f0f9ff)',
+    tag: 'Quyền riêng tư'
   },
   {
     key: 'inspection', icon: <ShieldCheck size={32} color="#7c3aed" strokeWidth={2.2} />, label: 'Kiểm Định', desc: 'Phiếu kiểm định & chứng nhận chất lượng',
@@ -174,7 +181,7 @@ function App() {
       const networkData = NETWORK_CONFIG[currentChainHex];
       
       if (!networkData) {
-        setErrorMsg(`Mạng không hỗ trợ (Mã của bạn đang là: ${currentChainHex})! Vui lòng chọn Hoodi, Sepolia, Celo Alfajores hoặc Unichain.`);
+        setErrorMsg(`Mạng không hỗ trợ (Mã của bạn đang là: ${currentChainHex})! Vui lòng chọn Hoodi, Sepolia hoặc Unichain.`);
         return;
       }
 
@@ -227,7 +234,7 @@ function App() {
 
   const filteredTabs = TABS.filter(t => {
     if (!userRole) return false;
-    if (userRole === 'owner') return ['farm', 'batch', 'log', 'inspection', 'analytics', 'activity'].includes(t.key);
+    if (userRole === 'owner') return ['farm', 'batch', 'log', 'listing', 'inspection', 'analytics', 'activity'].includes(t.key);
     if (userRole === 'customer') return ['trace', 'customerFarms', 'customerBatches', 'customerCrops', 'activity'].includes(t.key);
     return false;
   });
@@ -238,6 +245,7 @@ function App() {
       case 'farm': return <FarmDashboard contract={contract} account={account} onUserAction={logUserActivity} />;
       case 'batch': return <BatchDashboard contract={contract} account={account} onUserAction={logUserActivity} />;
       case 'log': return <LogDashboard contract={contract} account={account} onUserAction={logUserActivity} />;
+      case 'listing': return <FarmListingSettings contract={contract} account={account} onUserAction={logUserActivity} />;
       case 'inspection': return <InspectionDashboard contract={contract} account={account} onUserAction={logUserActivity} />;
       case 'trace': return <TraceabilityLookup contract={contract} forcedPage="search" />;
       case 'customerFarms': return <TraceabilityLookup contract={contract} forcedPage="farms" />;
@@ -289,7 +297,7 @@ function App() {
             alt="MetaMask" className="metamask-logo"
           />
 
-          <div className="network-badge" style={{ padding: '8px 16px' }}>Hỗ trợ: Hoodi | Sepolia | Celo | Unichain</div>
+          <div className="network-badge" style={{ padding: '8px 16px' }}>Hỗ trợ: Hoodi | Sepolia | Unichain</div>
 
           <h2>Kết nối Ví Web3</h2>
           <p>Kết nối ví MetaMask để quản lý và truy xuất nông sản trên Blockchain một cách minh bạch.</p>
@@ -528,38 +536,17 @@ function App() {
       )}
 
       {/* TOAST NOTIFICATIONS */}
-      <div className="toast-container" style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 99999, display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-end', pointerEvents: 'none' }}>
+      <div className="toast-container">
         {toasts.map(t => (
-          <div key={t.id} style={{
-            display: 'flex', alignItems: 'center', gap: '12px',
-            background: t.type === 'error' ? 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.05))' : 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.05))',
-            color: t.type === 'error' ? '#fca5a5' : '#a7f3d0',
-            padding: '14px 20px',
-            borderRadius: '16px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            border: `1px solid ${t.type === 'error' ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
-            fontSize: '14px',
-            fontWeight: 500,
-            animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-            pointerEvents: 'auto',
-            minWidth: '280px',
-            maxWidth: '380px'
-          }}>
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: t.type === 'error' ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              fontSize: '16px'
-            }}>
+          <div key={t.id} className={`premium-toast ${t.type === 'error' ? 't-error' : 't-success'}`}>
+            <div className="toast-icon">
               {t.type === 'error' ? '🚨' : '✨'}
             </div>
-            <div style={{ lineHeight: '1.5', flex: 1, wordBreak: 'break-word', color: '#fff' }}>
+            <div style={{ lineHeight: '1.5', flex: 1, wordBreak: 'break-word' }}>
               {t.msg}
             </div>
-            <button onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '-4px' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <button className="toast-close" onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
           </div>
         ))}

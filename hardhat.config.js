@@ -6,8 +6,14 @@ import "@nomicfoundation/hardhat-ethers";
 
 /** @type import('hardhat/config').HardhatUserConfig */
 const config = {
-  solidity: "0.8.24",
-  networks: {}
+  solidity: {
+    version: "0.8.24",
+    settings: {
+      optimizer: { enabled: true, runs: 200 },
+      viaIR: true,
+    },
+  },
+  networks: {},
 };
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
@@ -22,10 +28,7 @@ if (PRIVATE_KEY && PRIVATE_KEY.length === 66 && PRIVATE_KEY !== "0x0000000000000
     url: process.env.HOODI_RPC_URL || "https://rpc.hoodi.ethpandaops.io",
     accounts: [PRIVATE_KEY]
   };
-  config.networks.celo = {
-    url: process.env.CELO_RPC_URL || "https://alfajores-forno.celo-testnet.org",
-    accounts: [PRIVATE_KEY]
-  };
+
   config.networks.unichain = {
     url: process.env.UNICHAIN_RPC_URL || "https://sepolia.unichain.org",
     accounts: [PRIVATE_KEY]

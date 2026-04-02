@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { uploadBase64ToPinata } from '../utils/pinata';
-import { ShieldCheck, Key, Loader2, FileSignature, FolderOpen, FileText, MessageSquare, Paperclip } from 'lucide-react';
+import { ShieldCheck, Key, Loader2, FileSignature, FolderOpen, FileText, MessageSquare, Paperclip, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 const OPEN_INSPECTION_FOR_ALL = true;
 
@@ -167,7 +168,7 @@ export default function InspectionDashboard({ contract, account, onUserAction })
         form.approvalStatus, form.inspectionHash
       );
       await tx.wait();
-      setMsg('🎉 Hoàn tất: Phiếu kiểm định đã được cấp phát thành công!');
+      setMsg('✅ Hoàn tất: Phiếu kiểm định đã được cấp phát thành công!');
       onUserAction?.({
         type: 'inspection',
         title: 'Ghi phiếu kiểm định',
@@ -277,11 +278,14 @@ export default function InspectionDashboard({ contract, account, onUserAction })
                 Tài khoản hiện tại: {account?.substring(0, 6)}...{account?.substring(account.length - 4)} không có quyền Admin.
               </div>
             )}
-            {adminMsg && (
-              <p className={`form-msg ${adminMsg.startsWith('✅') ? 'success' : adminMsg.startsWith('❌') ? 'error-msg' : ''}`}
-                style={{ marginTop: '12px' }}>
-                {adminMsg}
-              </p>
+            {adminMsg && createPortal(
+              <div style={{ zIndex: 9999999 }} className={`form-msg ${adminMsg.match(/^[✅🎉✨]/) ? 'success' : adminMsg.match(/^[❌⚠️]/) ? 'error-msg' : ''}`}>
+                {adminMsg.match(/^[✅🎉✨]/) && <CheckCircle2 size={22} className="toast-anim-success" />}
+                {adminMsg.match(/^[❌⚠️]/) && <AlertTriangle size={22} className="toast-anim-error" />}
+                {adminMsg.match(/^[⏳⛓]/) && <Loader2 size={22} className="toast-anim-loading" />}
+                <span>{adminMsg.replace(/^[✅🎉✨❌⚠️⏳⛓]\s*/, '')}</span>
+              </div>,
+              document.body
             )}
           </>
         )}
@@ -357,7 +361,15 @@ export default function InspectionDashboard({ contract, account, onUserAction })
             </div>
           </div>
 
-          {msg && <p className={`form-msg ${msg.startsWith('✅') ? 'success' : msg.startsWith('❌') ? 'error-msg' : ''}`}>{msg}</p>}
+          {msg && createPortal(
+            <div style={{ zIndex: 9999999 }} className={`form-msg ${msg.match(/^[✅🎉✨]/) ? 'success' : msg.match(/^[❌⚠️]/) ? 'error-msg' : ''}`}>
+              {msg.match(/^[✅🎉✨]/) && <CheckCircle2 size={22} className="toast-anim-success" />}
+              {msg.match(/^[❌⚠️]/) && <AlertTriangle size={22} className="toast-anim-error" />}
+              {msg.match(/^[⏳⛓]/) && <Loader2 size={22} className="toast-anim-loading" />}
+              <span>{msg.replace(/^[✅🎉✨❌⚠️⏳⛓]\s*/, '')}</span>
+            </div>,
+            document.body
+          )}
           <button type="submit" className="btn primary-btn" disabled={loading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
             {loading ? <><Loader2 size={18} className="tsb-spin" /> Đang xử lý...</> : <><ShieldCheck size={18} /> Ghi Phiếu Kiểm Định</>}
           </button>

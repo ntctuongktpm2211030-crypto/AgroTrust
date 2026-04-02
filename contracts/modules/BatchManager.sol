@@ -63,4 +63,15 @@ abstract contract BatchManager is FarmManager {
         batches[_batchId].status = _status;
         emit BatchStatusUpdated(_batchId, _status);
     }
+
+    /**
+     * @dev Ẩn / hiện lô hàng đối với khách tra cứu (chỉ chủ nông trại của lô)
+     */
+    function setBatchHiddenFromCustomer(uint256 _batchId, bool _hidden) external {
+        require(_batchId > 0 && _batchId <= batchCount, "AgroTrust: Invalid batch ID");
+        uint256 farmId = batches[_batchId].farmId;
+        require(farms[farmId].ownerAddress == msg.sender, "AgroTrust: Caller is not the Farm Owner");
+        batchHiddenFromCustomer[_batchId] = _hidden;
+        emit BatchCustomerVisibilityChanged(_batchId, _hidden);
+    }
 }

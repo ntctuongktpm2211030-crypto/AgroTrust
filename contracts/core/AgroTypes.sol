@@ -68,6 +68,7 @@ struct CultivationLog {
     string  note;            // Ghi chú thêm
     address operatorAddress; // Ví điện tử của người ghi log (Bất biến, xác thực danh tính)
     uint256 timestamp;       // Thời điểm ghi nhận (Mặc định lấy từ block.timestamp)
+    bool    isActive;        // Quản lý hiển thị: Bật/Tắt (Mặc định true khi khởi tạo)
 }
 
 // 5. Hồ sơ Kiểm định (Inspection)

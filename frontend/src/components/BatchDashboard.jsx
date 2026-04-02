@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { getIpfsUrl } from '../utils/pinata';
-import { Wheat, Image as ImageIcon, PlusCircle, Loader2, Home, Leaf, MapPin, Sprout, Calendar, Package, Link, Truck, Thermometer, Droplets, AlertTriangle, User } from 'lucide-react';
+import { Wheat, Image as ImageIcon, PlusCircle, Loader2, Home, Leaf, MapPin, Sprout, Calendar, Package, Link, Truck, Thermometer, Droplets, AlertTriangle, User, CheckCircle2 } from 'lucide-react';
 
 const STATUS_LABELS = ['Đã gieo trồng','Đang chăm sóc','Đã bón phân','Đã phun thuốc','Đã thu hoạch','Đã đóng gói','Đang vận chuyển','Đã kiểm định','Đã phân phối'];
 
@@ -120,7 +120,7 @@ export default function BatchDashboard({ contract, account, onUserAction }) {
         form.dataHash
       );
       await tx.wait();
-      setMsg('🎉 Hoàn tất: Lô hàng mới đã được khởi tạo thành công!');
+      setMsg('✅ Hoàn tất: Lô hàng mới đã được khởi tạo thành công!');
       onUserAction?.({
         type: 'batch',
         title: 'Tạo lô hàng mới',
@@ -269,7 +269,12 @@ export default function BatchDashboard({ contract, account, onUserAction }) {
           <div className="form-row">
             <div className="form-group">
               <label>Ngày gieo trồng <span className="req">*</span></label>
-              <input type="date" value={form.sowingDate} onChange={set('sowingDate')} />
+              <input 
+                type="date" 
+                max={form.expectedHarvestDate || undefined}
+                value={form.sowingDate} 
+                onChange={set('sowingDate')} 
+              />
             </div>
             <div className="form-group">
               <label>Ngày thu hoạch dự kiến</label>
@@ -289,11 +294,19 @@ export default function BatchDashboard({ contract, account, onUserAction }) {
             <div className="form-group">
               <label>Đơn vị tính</label>
               <select value={form.quantityUnit} onChange={set('quantityUnit')}>
-                {['kg','tấn','thùng','giỏ','bao','lít'].map(u => <option key={u}>{u}</option>)}
+                {['kg', 'tấn', 'thùng', 'giỏ', 'bao', 'Lít'].map(u => <option value={u} key={u}>{u}</option>)}
               </select>
             </div>
           </div>
-          {msg && <p className={`form-msg ${msg.startsWith('✅') ? 'success' : msg.startsWith('❌') ? 'error-msg' : ''}`}>{msg}</p>}
+          {msg && createPortal(
+            <div style={{ zIndex: 9999999 }} className={`form-msg ${msg.match(/^[✅🎉✨]/) ? 'success' : msg.match(/^[❌⚠️]/) ? 'error-msg' : ''}`}>
+              {msg.match(/^[✅🎉✨]/) && <CheckCircle2 size={22} className="toast-anim-success" />}
+              {msg.match(/^[❌⚠️]/) && <AlertTriangle size={22} className="toast-anim-error" />}
+              {msg.match(/^[⏳⛓]/) && <Loader2 size={22} className="toast-anim-loading" />}
+              <span>{msg.replace(/^[✅🎉✨❌⚠️⏳⛓]\s*/, '')}</span>
+            </div>,
+            document.body
+          )}
           <button type="submit" className="btn primary-btn" disabled={loading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
             {loading ? <><Loader2 size={18} className="tsb-spin"/> Đang xử lý...</> : <><PlusCircle size={18}/> Tạo Lô Hàng</>}
           </button>

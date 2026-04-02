@@ -1,6 +1,6 @@
 import { execSync } from 'child_process';
 
-const networks = ['sepolia', 'hoodi', 'celo', 'unichain'];
+const networks = ['sepolia', 'hoodi', 'unichain'];
 
 console.log("🚀 Bắt đầu quá trình Deploy tự động lên tất cả các mạng...");
 

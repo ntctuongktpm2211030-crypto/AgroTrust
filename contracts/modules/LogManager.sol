@@ -50,7 +50,8 @@ abstract contract LogManager is BatchManager {
             iotData:          _iotData,
             note:             _note,
             operatorAddress:  msg.sender,   // Danh tính người ghi được gán chặt chẽ với ví
-            timestamp:        block.timestamp
+            timestamp:        block.timestamp,
+            isActive:         true
         });
 
         batchLogs[_batchId].push(newLog);
@@ -62,5 +63,62 @@ abstract contract LogManager is BatchManager {
      */
     function getBatchLogs(uint256 _batchId) external view returns (CultivationLog[] memory) {
         return batchLogs[_batchId];
+    }
+
+    /**
+     * @dev Cập nhật nội dung nhật ký canh tác (chỉ dành cho Chủ Nông Trại)
+     */
+    function updateCultivationLog(
+        uint256 _batchId,
+        uint256 _logId,
+        string memory _actionType,
+        string memory _description,
+        string memory _materialName,
+        string memory _dosage,
+        string memory _operatorName,
+        string memory _weatherCondition,
+        string memory _iotData,
+        string memory _note
+    ) external {
+        uint256 farmId = batches[_batchId].farmId;
+        require(farms[farmId].ownerAddress == msg.sender, "AgroTrust: Caller is not the Farm Owner");
+
+        CultivationLog[] storage logs = batchLogs[_batchId];
+        bool found = false;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].logId == _logId) {
+                logs[i].actionType = _actionType;
+                logs[i].description = _description;
+                logs[i].materialName = _materialName;
+                logs[i].dosage = _dosage;
+                logs[i].operatorName = _operatorName;
+                logs[i].weatherCondition = _weatherCondition;
+                logs[i].iotData = _iotData;
+                logs[i].note = _note;
+                // timestamp and operatorAddress remain unchanged
+                found = true;
+                break;
+            }
+        }
+        require(found, "AgroTrust: Log not found");
+    }
+
+    /**
+     * @dev Ẩn/Hiện nhật ký canh tác (Toggles isActive mode, chỉ dành cho Chủ Nông Trại)
+     */
+    function toggleLogStatus(uint256 _batchId, uint256 _logId) external {
+        uint256 farmId = batches[_batchId].farmId;
+        require(farms[farmId].ownerAddress == msg.sender, "AgroTrust: Caller is not the Farm Owner");
+
+        CultivationLog[] storage logs = batchLogs[_batchId];
+        bool found = false;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].logId == _logId) {
+                logs[i].isActive = !logs[i].isActive;
+                found = true;
+                break;
+            }
+        }
+        require(found, "AgroTrust: Log not found");
     }
 }
